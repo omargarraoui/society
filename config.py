@@ -23,6 +23,10 @@ NIGHT_START_HOUR = 23
 NIGHT_END_HOUR = 7
 NIGHT_AWAKE_PROB = 0.10   # probabilita' per agente di restare sveglio di notte
 NIGHT_AWAKE_MAX = 1       # tetto di svegli per tick di notte
+# La settimana del mondo: il 7o giorno e' il giorno di riposo del quarto comandamento.
+DAYS_PER_WEEK = 7
+REST_DAY = 7
+
 # Velocita' massima: 10 giorni del mondo per giorno reale = 1 giorno del mondo in 2.4 ore (deciso il 4/11/2026).
 # Sotto questo tetto la velocita' la decidono le quote gratuite (world.world_days_per_day).
 MAX_SPEED = 10
@@ -41,6 +45,8 @@ MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
            "propose_marriage", "accept_marriage", "assess"]
 MAX_MESSAGE_CHARS = 300
+# Cio' da cui una promessa puo' astenersi in modo che il codice lo verifichi (db.violations).
+REFRAINS = ["steal", "work_on_day_of_rest"]
 
 # --- Fondatori: (nome, sesso, modello nascosto) ---
 FOUNDERS = [("Adam", "M", "groq"), ("Eve", "F", "gemini")]

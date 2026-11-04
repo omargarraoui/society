@@ -34,7 +34,7 @@ spec:
                 promiser: {type: string}
                 body: {type: string, maxLength: 500}
                 # Optional: set only when the promise is never to take an action the code can observe.
-                refrains: {type: string, enum: [steal]}
+                refrains: {type: string, enum: [steal, work_on_day_of_rest]}  # = config.REFRAINS
                 tick: {type: integer, minimum: 0}
             status:
               type: object

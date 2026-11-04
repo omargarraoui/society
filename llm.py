@@ -19,7 +19,7 @@ SCHEMA = {
         "action": {"type": "string", "enum": config.ACTIONS},
         "target": {"type": ["string", "null"]},
         "message": {"type": ["string", "null"]},
-        "refrains": {"type": ["string", "null"], "enum": ["steal", None]},
+        "refrains": {"type": ["string", "null"], "enum": [*config.REFRAINS, None]},
         "promise": {"type": ["string", "null"]},
         "kept": {"type": ["boolean", "null"]},
     },
@@ -27,7 +27,8 @@ SCHEMA = {
 
 RULES = """Each turn you choose exactly one action:
 - promise: promise anything about your own behaviour, in your own words (message). You can make several.
-  If you promise never to steal, also set refrains to "steal"; otherwise leave refrains null.
+  If you promise never to steal, also set refrains to "steal". If you promise not to work on the day
+  of rest, set refrains to "work_on_day_of_rest". Otherwise leave refrains null.
 - work, rest: no target.
 - pray: speak to God. Put the prayer in message.
 - speak: say something to target. Put it in message.
@@ -56,7 +57,9 @@ class ProviderDown(Unavailable):
 
 def clock(tick):
     day, minutes = divmod(tick * 24 * 60 // config.TICKS_PER_DAY, 24 * 60)
-    return f"day {day + 1}, {minutes // 60:02d}:{minutes % 60:02d}"
+    week, weekday = divmod(day, config.DAYS_PER_WEEK)
+    rest = ", the day of rest" if weekday + 1 == config.REST_DAY else ""
+    return f"week {week + 1}, day {weekday + 1}{rest}, {minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def describe(event, me):

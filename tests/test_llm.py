@@ -18,16 +18,18 @@ def event(tick, kind, agent, **data):
 
 
 def test_clock():
-    assert clock(0) == "day 1, 00:00"
-    assert clock(28) == "day 1, 07:00"
-    assert clock(96 + 49) == "day 2, 12:15"
+    assert clock(0) == "week 1, day 1, 00:00"
+    assert clock(28) == "week 1, day 1, 07:00"
+    assert clock(96 + 49) == "week 1, day 2, 12:15"
+    assert clock(6 * 96 + 40) == "week 1, day 7, the day of rest, 10:00"
+    assert clock(7 * 96) == "week 2, day 1, 00:00"
 
 
 def test_describe_from_the_agent_point_of_view():
     said = describe(event(30, "speak", "eve", target="adam", message="Hi"), "adam")
     judged = describe(event(31, "assess", "adam", target="eve", kept=False), "adam")
-    assert said == 'Day 1, 07:30: Eve said to you: "Hi"'
-    assert judged == "Day 1, 07:45: you judged the promise of Eve (broken)"
+    assert said == 'Week 1, day 1, 07:30: Eve said to you: "Hi"'
+    assert judged == "Week 1, day 1, 07:45: you judged the promise of Eve (broken)"
 
 
 def test_prompt_never_reveals_model_or_group():

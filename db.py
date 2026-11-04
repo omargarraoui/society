@@ -57,6 +57,11 @@ class DB:
                (self.get("tick", 0), kind, agent, json.dumps(data, ensure_ascii=False)))
 
     def violations(self, promiser, refrains, since_tick):
+        if refrains == "work_on_day_of_rest":
+            return self.one("select count(*) as n from events where agent=? and kind='work' and tick>=? "
+                            "and (tick / ?) % ? = ?",
+                            (promiser, since_tick, config.TICKS_PER_DAY, config.DAYS_PER_WEEK,
+                             config.REST_DAY - 1))["n"]
         return self.one("select count(*) as n from events where agent=? and kind=? and tick>=?",
                         (promiser, refrains, since_tick))["n"]
 

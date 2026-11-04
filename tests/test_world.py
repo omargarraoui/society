@@ -128,7 +128,8 @@ def test_mock_only_produces_valid_actions(tmp_path):
 @pytest.mark.parametrize("data, reason", [
     ({"message": "I promise to keep the day of rest holy."}, None),
     ({"message": "I will not steal.", "refrains": "steal"}, None),
-    ({"message": "I will not kill.", "refrains": "kill"}, "steal is the only action a promise can refrain from"),
+    ({"message": "I will not kill.", "refrains": "kill"}, "unknown refrains"),
+    ({"message": "I will rest on the seventh day.", "refrains": "work_on_day_of_rest"}, None),
     ({"refrains": "steal"}, "a promise needs words"),
 ])
 def test_free_promises_are_accepted(data, reason):
@@ -142,3 +143,13 @@ def test_mock_never_assesses_a_promise_it_cannot_check(tmp_path):
     decide = mock_brain({}, DB(str(tmp_path / "t.db")))
     kinds = {decide(random.Random(s), ADAM, others, None, tick=40)[0] for s in range(300)}
     assert "assess" not in kinds
+
+
+def test_working_on_the_day_of_rest_breaks_the_rest_promise(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    for tick, kind in [(5 * 96 + 40, "work"), (6 * 96 + 40, "work"), (6 * 96 + 41, "rest"), (13 * 96 + 40, "work")]:
+        db.set("tick", tick)
+        db.log(kind, "eve")
+    # Day 6 is a normal day; days 7 and 14 are days of rest: 2 violations.
+    assert db.violations("eve", "work_on_day_of_rest", since_tick=0) == 2
+    assert db.violations("eve", "work_on_day_of_rest", since_tick=7 * 96) == 1

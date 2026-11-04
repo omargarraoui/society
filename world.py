@@ -117,8 +117,8 @@ def invalid_reason(kind, data, me, agents, proposer):
         return "message too long"
     if kind == "promise" and not data.get("message"):
         return "a promise needs words"
-    if kind == "promise" and "refrains" in data and data["refrains"] != "steal":
-        return "steal is the only action a promise can refrain from"
+    if kind == "promise" and "refrains" in data and data["refrains"] not in config.REFRAINS:
+        return "unknown refrains"
     if kind in ("speak", "pray") and not data.get("message"):
         return "nothing said"
     if kind == "propose_marriage" and (me["spouse"] or target["spouse"] or me["sex"] == target["sex"]):
