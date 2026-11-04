@@ -76,8 +76,18 @@ Violazioni dei comandamenti nel tempo, matrimoni e nascite per gruppo di modello
 
 Cartella `society/`:
 - `config.py`: fatto. Comandamenti, tempo del mondo, limiti, fondatori, nomi, provider (modelli e limiti da verificare).
-- `db.py`: fatto. SQLite con tabelle `agents`, `marriages`, `requests`, `events`, `usage`, `kv`.
-- Mancano: `rules.py` (controlli oggettivi: sesso, parentela, risorse, tetto), `llm.py` (router con fallback, contatori di quota, modalità `--mock`), `world.py` (orologio, tick, scelta degli svegli, prompt degli agenti, azioni), `god.py` (agente-Dio, nascite), `main.py`, bot Telegram, README e test.
+- `db.py`: fatto. SQLite solo per lo storico: `events` (con `agent` come nome), `usage`, `kv`. Le tabelle `agents`, `marriages` e `requests` sono state tolte: diventeranno risorse k8s.
+- `k8s/promise-crd.yaml`: CRD `Promise` (promiser, body, refrains, tick; lo status lo scrive l'Operator). Per ora `refrains` accetta solo `steal`.
+- `promise_operator.py`: Operator kopf. Ogni 10 s confronta ogni Promise con gli eventi in SQLite e scrive `state` (kept o broken) e `violations`.
+- `world.py`: un tick per esecuzione. Il mondo parte alle 07:00 (tick 28). Gestisce giorno e notte, Adam ed Eve, e un'azione finta (`mock_action`) al posto dell'LLM: prima la promessa, poi `work` o `steal`.
+- `tests/test_world.py`: 7 test. `pyproject.toml`: dipendenze fissate e Ruff.
+- Primo tick verificato su kind il 4 novembre 2026: dopo 12 tick, 2 promesse con 2 violazioni ciascuna, come nel log.
+- Mancano: CRD `Assessment` (le valutazioni di chi osserva), il cibo come stato, `llm.py` (router con fallback e quote), il passo dei tick adattivo alle quote (`TICK_SECONDS` in config è ancora fisso), `rules.py`, l'agente-Dio, l'Operator dentro il cluster (oggi gira in locale con `kopf run`), il bot Telegram e il README.
+
+Come si avvia (sviluppo):
+1. `kind create cluster --name society` e `kubectl apply -f k8s/promise-crd.yaml`
+2. `.venv/bin/kopf run promise_operator.py --namespace default`
+3. `.venv/bin/python world.py` (un tick per esecuzione), poi `kubectl get promises`
 
 Azioni previste per gli agenti (elenco fisso): speak, pray, work, give, steal, propose_marriage, accept_marriage, request_child, rest. I furti e gli omicidi sono eventi certi (azioni), le bugie restano nei messaggi liberi.
 

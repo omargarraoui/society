@@ -1,0 +1,43 @@
+# Promise Theory: an agent promises only about its own behaviour.
+# spec is written by the promiser; status is written by the operator from observed events.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: promises.society.local
+spec:
+  group: society.local
+  scope: Namespaced
+  names:
+    kind: Promise
+    plural: promises
+    singular: promise
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - {name: Promiser, type: string, jsonPath: .spec.promiser}
+        - {name: Refrains, type: string, jsonPath: .spec.refrains}
+        - {name: State, type: string, jsonPath: .status.state}
+        - {name: Violations, type: integer, jsonPath: .status.violations}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [promiser, body, refrains, tick]
+              properties:
+                promiser: {type: string}
+                body: {type: string, maxLength: 500}
+                # Only actions the rules engine can observe; extend together with world.py.
+                refrains: {type: string, enum: [steal]}
+                tick: {type: integer, minimum: 0}
+            status:
+              type: object
+              properties:
+                state: {type: string, enum: [kept, broken]}
+                violations: {type: integer, minimum: 0}
+                checkedTick: {type: integer}
