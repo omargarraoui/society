@@ -1,11 +1,14 @@
 """A world is a k8s namespace (state) plus a SQLite event log (history).
 
   python world.py genesis NAMESPACE
-  python world.py tick NAMESPACE [--ticks N] [--bias groq=0.8 ...]
+  python world.py tick NAMESPACE [--ticks N] [--brain mock|llm] [--bias groq=0.8 ...]
+  python world.py run NAMESPACE   # LLM brain, forever, paced by the free quotas
 """
 import argparse
 import os
 import random
+import time
+from collections import Counter
 
 import kubernetes
 
@@ -182,6 +185,44 @@ def run_tick(db, api, namespace, brain):
             })
         db.log(kind, name, **data)
     db.set("tick", tick + 1)
+    return agents
+
+
+def turn_tokens(quota, model):
+    """Today's measured average, or the configured estimate before the first call."""
+    requests, tokens = quota.usage(model)
+    return tokens / requests if requests else config.PROVIDERS[model]["turn_tokens"]
+
+
+def world_days_per_day(model_counts, tokens_per_turn):
+    """How many world days fit in one real day of free quota, capped at MAX_SPEED.
+
+    Assumes this world is the only one using the quota.
+    """
+    day_ticks = (config.NIGHT_START_HOUR - config.NIGHT_END_HOUR) * config.TICKS_PER_DAY // 24
+    night_ticks = config.TICKS_PER_DAY - day_ticks
+    population = sum(model_counts.values())
+    speed = config.MAX_SPEED
+    for model, count in model_counts.items():
+        p = config.PROVIDERS[model]
+        # Upper bound: every agent awake all day, plus its share of the night's awake slots.
+        turns = count * day_ticks + night_ticks * config.NIGHT_AWAKE_MAX * count / population
+        budget = p["daily_requests"]
+        if p["daily_tokens"] is not None:
+            budget = min(budget, p["daily_tokens"] / tokens_per_turn[model])
+        speed = min(speed, config.QUOTA_SHARE * budget / turns)
+    return speed
+
+
+def run_forever(db, api, namespace, brain, quota):
+    while True:
+        started = time.monotonic()
+        agents = run_tick(db, api, namespace, brain)
+        counts = Counter(a["model"] for a in agents.values())
+        speed = world_days_per_day(counts, {m: turn_tokens(quota, m) for m in counts})
+        pause = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
+        print(f"tick {db.get('tick') - 1}: {speed:.2f} world days per day, next tick in {pause:.0f}s", flush=True)
+        time.sleep(max(0.0, pause - (time.monotonic() - started)))
 
 
 def create_world(core, api, namespace, agents, seed, labels=None):
@@ -215,6 +256,7 @@ def main():
     tick.add_argument("--ticks", type=int, default=1)
     tick.add_argument("--brain", choices=["mock", "llm"], default="mock")
     tick.add_argument("--bias", nargs="*", default=[], metavar="MODEL=P", help="mock brain only")
+    sub.add_parser("run").add_argument("namespace")
     args = parser.parse_args()
 
     kubernetes.config.load_kube_config()
@@ -225,7 +267,7 @@ def main():
         create_world(kubernetes.client.CoreV1Api(), api, args.namespace, founders, seed=0)
         return
     db = DB(world_db_path(args.namespace))
-    if args.brain == "mock":
+    if args.cmd == "tick" and args.brain == "mock":
         brain = mock_brain(parse_bias(args.bias), db)
     else:
         models = {a["model"] for a in load_agents(api, args.namespace).values()}
@@ -234,9 +276,13 @@ def main():
         if missing:
             raise SystemExit(f"missing API keys: {', '.join(missing)}")
         # Quotas belong to the account, not to a world, so all worlds share one counter.
-        brain = llm_brain(db, DB(os.path.join(config.DB_DIR, "quota.db")))
-    for _ in range(args.ticks):
-        run_tick(db, api, args.namespace, brain)
+        quota = DB(os.path.join(config.DB_DIR, "quota.db"))
+        brain = llm_brain(db, quota)
+    if args.cmd == "run":
+        run_forever(db, api, args.namespace, brain, quota)
+    else:
+        for _ in range(args.ticks):
+            run_tick(db, api, args.namespace, brain)
 
 
 if __name__ == "__main__":

@@ -23,7 +23,11 @@ NIGHT_START_HOUR = 23
 NIGHT_END_HOUR = 7
 NIGHT_AWAKE_PROB = 0.10   # probabilita' per agente di restare sveglio di notte
 NIGHT_AWAKE_MAX = 1       # tetto di svegli per tick di notte
-TICK_SECONDS = 900        # pausa reale tra i tick (0 = massima velocita', per test)
+# Velocita' massima: 10 giorni del mondo per giorno reale = 1 giorno del mondo in 2.4 ore (deciso il 4/11/2026).
+# Sotto questo tetto la velocita' la decidono le quote gratuite (world.world_days_per_day).
+MAX_SPEED = 10
+# Si punta al 90% delle quote: il costo in token di un turno e' una media e cresce con gli agenti.
+QUOTA_SHARE = 0.9
 
 # --- Limiti duri (non modificabili dagli agenti ne' dall'agente-Dio) ---
 MAX_AGENTS = 12
@@ -56,6 +60,7 @@ PROVIDERS = {
         # in crescita con gli eventi nel prompt (max 15) = circa 250 turni al giorno, circa 10 al minuto.
         "daily_requests": 1000,
         "daily_tokens": 200_000,
+        "turn_tokens": 790,
         "extra": {"reasoning_effort": "low"},
     },
     "gemini": {
@@ -65,6 +70,7 @@ PROVIDERS = {
         # Limiti NON verificati.
         "daily_requests": 400,
         "daily_tokens": None,
+        "turn_tokens": None,
         "extra": {},
     },
     "cloudflare": {
@@ -75,6 +81,7 @@ PROVIDERS = {
         # Limiti NON verificati.
         "daily_requests": 200,
         "daily_tokens": None,
+        "turn_tokens": None,
         "extra": {},
     },
 }

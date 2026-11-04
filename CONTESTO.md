@@ -94,11 +94,12 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
 - `world.py`: `genesis` crea Adam ed Eve, `tick` fa girare N tick. Le azioni sono finte (`mock_action`): promise, poi work, speak, give, steal, propose_marriage, accept_marriage, assess. Il codice impone matrimonio solo tra un uomo e una donna non sposati.
 - `metrics.py`: le metriche di segregazione.
 - `experiment.py`: per ogni seed, un mondo vero (12 agenti, 4 per modello, 2 uomini e 2 donne ciascuno) e un mondo di controllo. Salva i risultati in `results/<nome>.json`.
-- Test: 40, in `tests/`. Ruff pulito.
+- Test: 45, in `tests/`. Ruff pulito.
 - `llm.py`: il turno di un agente via API OpenAI-compatibile. Risposta in JSON con schema stretto (structured outputs di Groq). Il prompt contiene nomi, sesso, matrimoni ed eventi visti, mai `model` o `group` (c'è un test). Quote contate per giorno UTC in `worlds/quota.db`, condivise tra i mondi.
 - `world.py`: `--brain mock|llm`. Ogni azione, del mock o dell'LLM, passa da `invalid_reason()`: le regole dure le impone il codice. Un'azione rifiutata finisce nel log come `invalid`, con il motivo.
+- Passo adattivo (`world.py run`): dopo ogni tick calcola quanti giorni del mondo entrano in un giorno reale di quote gratuite, per ogni provider presente, e prende il più lento. Tetto: 10 (`MAX_SPEED`). Usa il 90% delle quote (`QUOTA_SHARE`) e la media dei token di oggi. Esempi: 2 agenti su Groq = 1.41 giorni del mondo al giorno (un tick ogni 637 s, misurato). 12 agenti, 4 per modello = 0.675, limitato da cloudflare (200 richieste, non verificate). Ipotesi: un solo mondo alla volta usa le quote.
 - Prima prova con Groq vero (4 novembre 2026, mondo `groq1`, Adam ed Eve entrambi su Groq, 28 tick): promesse con parole proprie, dialoghi, cibo condiviso, proposta di matrimonio di Eve accettata da Adam, 2 Assessment. 1 azione rifiutata dal validatore (Adam che valuta se stesso). Circa 790 token a turno.
-- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), il passo dei tick adattivo alle quote, `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
+- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
 Come si avvia (sviluppo):
@@ -106,6 +107,7 @@ Come si avvia (sviluppo):
 2. `.venv/bin/kopf run promise_operator.py --all-namespaces`
 3. `.venv/bin/python world.py genesis genesis` e `.venv/bin/python world.py tick genesis --ticks 40` (mock)
    LLM vero: le chiavi in `.env` (mai nel repo), poi `set -a; source .env; set +a; .venv/bin/python world.py tick genesis --brain llm`
+   Sempre acceso, al passo delle quote: `.venv/bin/python world.py run genesis`
 4. Esperimento: `.venv/bin/python experiment.py NOME --seeds 8 --days 2 --bias groq=0.8`
 5. Pulizia: `kubectl delete ns -l society.local/experiment=NOME`
 
