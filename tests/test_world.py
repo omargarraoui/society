@@ -121,3 +121,22 @@ def test_mock_only_produces_valid_actions(tmp_path):
     for seed in range(300):
         kind, data = decide(random.Random(seed), ADAM, others, EVE, tick=40)
         assert invalid_reason(kind, data, ADAM, {a["name"]: a for a in [ADAM, *others]}, EVE) is None, (kind, data)
+
+
+@pytest.mark.parametrize("data, reason", [
+    ({"message": "I promise to keep the day of rest holy."}, None),
+    ({"message": "I will not steal.", "refrains": "steal"}, None),
+    ({"message": "I will not kill.", "refrains": "kill"}, "steal is the only action a promise can refrain from"),
+    ({"refrains": "steal"}, "a promise needs words"),
+])
+def test_free_promises_are_accepted(data, reason):
+    me = agent("adam", "groq", promise=None)
+    assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None) == reason
+
+
+def test_mock_never_assesses_a_promise_it_cannot_check(tmp_path):
+    free = {"metadata": {"name": "f"}, "spec": {"body": "I will rest on the seventh day.", "tick": 0}}
+    others = [agent("eve", "gemini", sex="F", promise=free)]
+    decide = mock_brain({}, DB(str(tmp_path / "t.db")))
+    kinds = {decide(random.Random(s), ADAM, others, None, tick=40)[0] for s in range(300)}
+    assert "assess" not in kinds

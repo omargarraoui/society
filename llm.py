@@ -25,8 +25,8 @@ SCHEMA = {
 }
 
 RULES = """Each turn you choose exactly one action:
-- promise: promise something about your own behaviour, once. Put your words in message.
-  refrains is the action you promise never to take (only "steal" for now).
+- promise: promise anything about your own behaviour, once, in your own words (message).
+  If you promise never to steal, also set refrains to "steal"; otherwise leave refrains null.
 - work, rest: no target.
 - pray: speak to God. Put the prayer in message.
 - speak: say something to target. Put it in message.
@@ -84,7 +84,7 @@ def prompt(me, others, proposer, events, tick):
     people = "\n".join(
         f"- {o['name'].capitalize()}, {'man' if o['sex'] == 'M' else 'woman'}"
         + (f", married to {'you' if o['spouse'] == me['name'] else o['spouse'].capitalize()}" if o["spouse"] else "")
-        + (", has made a promise" if o["promise"] is not None else "")
+        + (f', promised: "{o["promise"]["spec"]["body"]}"' if o["promise"] is not None else "")
         for o in others
     )
     mine = f'You promised: "{me["promise"]["spec"]["body"]}"' if me["promise"] else "You have made no promise."

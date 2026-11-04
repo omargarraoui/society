@@ -70,3 +70,9 @@ def test_gemini_quota_day_follows_pacific_time():
     now_utc = datetime.now(UTC).strftime("%Y-%m-%d")
     assert quota_day("gemini") == now_pacific
     assert quota_day("groq") == now_utc
+
+
+def test_prompt_shows_what_others_promised():
+    eve = {**EVE, "promise": {"metadata": {"name": "q"}, "spec": {"body": "I will rest on the seventh day."}}}
+    text = prompt(ADAM, [eve], None, [], 40)[1]["content"]
+    assert 'Eve, woman, married to you, promised: "I will rest on the seventh day."' in text

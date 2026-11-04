@@ -1,5 +1,6 @@
 # Promise Theory: an agent promises only about its own behaviour.
-# spec is written by the promiser; status is written by the operator from observed events.
+# spec is written by the promiser. Any promise is accepted; only one with `refrains` can be
+# checked by the operator (status). The others are judged only by other agents' Assessments.
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -28,11 +29,11 @@ spec:
           properties:
             spec:
               type: object
-              required: [promiser, body, refrains, tick]
+              required: [promiser, body, tick]
               properties:
                 promiser: {type: string}
                 body: {type: string, maxLength: 500}
-                # Only actions the rules engine can observe; extend together with world.py.
+                # Optional: set only when the promise is never to take an action the code can observe.
                 refrains: {type: string, enum: [steal]}
                 tick: {type: integer, minimum: 0}
             status:

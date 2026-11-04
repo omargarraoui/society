@@ -57,7 +57,8 @@ def mock_action(rng, me, others, proposer, bias):
     candidates = {
         "work": [],
         "propose_marriage": [] if me["spouse"] else [o for o in others if o["sex"] != me["sex"] and not o["spouse"]],
-        "assess": [o for o in others if o["promise"] is not None],
+        # The mock judges from the event log, so it can only assess promises the code can check.
+        "assess": [o for o in others if o["promise"] is not None and "refrains" in o["promise"]["spec"]],
     }.get(kind, others)
     if not candidates:
         return "work", {}
@@ -104,8 +105,10 @@ def invalid_reason(kind, data, me, agents, proposer):
         return "message too long"
     if kind == "promise" and me["promise"] is not None:
         return "already promised"
-    if kind == "promise" and (data.get("refrains") != "steal" or not data.get("message")):
-        return "a promise needs words and refrains=steal"
+    if kind == "promise" and not data.get("message"):
+        return "a promise needs words"
+    if kind == "promise" and "refrains" in data and data["refrains"] != "steal":
+        return "steal is the only action a promise can refrain from"
     if kind in ("speak", "pray") and not data.get("message"):
         return "nothing said"
     if kind == "propose_marriage" and (me["spouse"] or target["spouse"] or me["sex"] == target["sex"]):
@@ -171,7 +174,8 @@ def run_tick(db, api, namespace, brain):
             me["promise"] = api.create_namespaced_custom_object(**crd("promises", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Promise",
                 "metadata": {"generateName": f"{name}-"},
-                "spec": {"promiser": name, "tick": tick, "body": data["message"], "refrains": data["refrains"]},
+                "spec": {"promiser": name, "tick": tick, "body": data["message"],
+                         **({"refrains": data["refrains"]} if "refrains" in data else {})},
             })
         elif kind == "accept_marriage":
             marry(api, namespace, me, agents[data["target"]])
