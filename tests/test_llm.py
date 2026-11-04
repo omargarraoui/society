@@ -93,3 +93,11 @@ def test_parse_drops_fields_the_action_does_not_use():
     answer = {"action": "promise", "target": None, "message": "I will work hard.", "refrains": None,
               "promise": "I will work hard.", "kept": False}
     assert parse(answer) == ("promise", {"message": "I will work hard."})
+
+
+def test_the_observer_sees_what_was_seen_and_the_observed_only_that_it_happened():
+    e = event(40, "observe", "adam", target="eve", saw=[{"tick": 30, "kind": "work"},
+                                                       {"tick": 33, "kind": "steal", "target": "adam"}])
+    assert describe(e, "adam") == ("Week 1, day 1, 10:00: you watched Eve: week 1, day 1, 07:30 worked; "
+                                   "week 1, day 1, 08:15 stole food from you")
+    assert describe(e, "eve") == "Week 1, day 1, 10:00: Adam watched you"

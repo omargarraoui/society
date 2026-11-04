@@ -35,12 +35,14 @@ RULES = """Each turn you choose exactly one action:
 - give, steal: give food to target, or take food from target.
 - propose_marriage: ask target to marry you. Marriage is between one man and one woman, both unmarried.
 - accept_marriage: accept the proposal target made to you.
+- observe: watch target to learn what they did since yesterday (not their words or prayers).
+  They will know you watched them.
 - assess: judge whether target has kept one of their promises. Set promise to its [id] and kept to true or false.
 Unused fields must be null."""
 
 VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "prayed", "speak": "said to",
          "give": "gave food to", "steal": "stole food from", "propose_marriage": "proposed marriage to",
-         "accept_marriage": "accepted marriage with", "assess": "judged the promise of"}
+         "accept_marriage": "accepted marriage with", "assess": "judged the promise of", "observe": "watched"}
 
 
 class Unavailable(Exception):
@@ -73,6 +75,10 @@ def describe(event, me):
         line += f': "{data["message"]}"'
     if "kept" in data:
         line += " (kept)" if data["kept"] else " (broken)"
+    if "saw" in data and event["agent"] == me:
+        seen = [f"{clock(s['tick'])} {VERBS[s['kind']]}" + (f" {who(s['target'])}" if "target" in s else "")
+                for s in data["saw"]]
+        line += ": " + ("; ".join(seen) or "nothing")
     return line[0].upper() + line[1:]
 
 

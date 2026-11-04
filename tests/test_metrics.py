@@ -44,3 +44,8 @@ def test_trust_gap_is_in_group_minus_out_group():
 
 def test_no_trust_gap_without_both_sides():
     assert segregation([ev("a1", "assess", "a2", kept=1)], AGENTS)["trust_gap"] is None
+
+
+def test_observing_counts_as_an_interaction():
+    m = segregation([ev("a1", "observe", "a2")], AGENTS)
+    assert m["ratio"]["g1->g1"] == pytest.approx(3.0)

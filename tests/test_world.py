@@ -3,7 +3,7 @@ import random
 import pytest
 
 from db import DB
-from world import awake, invalid_reason, mock_action, mock_brain, pick
+from world import awake, invalid_reason, mock_action, mock_brain, observed, pick
 
 NAMES = ["adam", "eve"]
 NOON = 48
@@ -153,3 +153,24 @@ def test_working_on_the_day_of_rest_breaks_the_rest_promise(tmp_path):
     # Day 6 is a normal day; days 7 and 14 are days of rest: 2 violations.
     assert db.violations("eve", "work_on_day_of_rest", since_tick=0) == 2
     assert db.violations("eve", "work_on_day_of_rest", since_tick=7 * 96) == 1
+
+
+def test_observe_shows_recent_actions_without_prayers_or_words(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    log = [(30, "work", {}), (31, "pray", {"message": "secret"}), (32, "speak", {"target": "adam", "message": "hi"}),
+           (33, "steal", {"target": "adam"})]
+    for tick, kind, data in log:
+        db.set("tick", tick)
+        db.log(kind, "eve", **data)
+    assert observed(db, "eve", tick=40) == [
+        {"tick": 30, "kind": "work"}, {"tick": 32, "kind": "speak", "target": "adam"},
+        {"tick": 33, "kind": "steal", "target": "adam"}]
+
+
+def test_observe_shows_at_most_the_limit_and_nothing_older_than_yesterday(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    for tick in [10, *range(96 + 30, 96 + 30 + 12)]:  # tick 10 is day 1; the rest are day 2
+        db.set("tick", tick)
+        db.log("work", "eve")
+    seen = observed(db, "eve", tick=2 * 96 + 30)  # day 3: yesterday = day 2
+    assert [s["tick"] for s in seen] == list(range(96 + 34, 96 + 42))

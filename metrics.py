@@ -2,7 +2,7 @@
 from collections import Counter
 from statistics import mean
 
-INTERACTIONS = {"speak", "give", "propose_marriage", "assess"}
+INTERACTIONS = {"speak", "give", "propose_marriage", "assess", "observe"}
 
 
 def segregation(events, agents):

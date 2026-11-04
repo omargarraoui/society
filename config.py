@@ -43,7 +43,9 @@ MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 
 # Elenco fisso: il codice rifiuta qualsiasi altra azione.
 ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
-           "propose_marriage", "accept_marriage", "assess"]
+           "propose_marriage", "accept_marriage", "assess", "observe"]
+# Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.
+OBSERVE_LIMIT = 8
 MAX_MESSAGE_CHARS = 300
 # Cio' da cui una promessa puo' astenersi in modo che il codice lo verifichi (db.violations).
 REFRAINS = ["steal", "work_on_day_of_rest"]

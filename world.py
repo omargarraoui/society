@@ -18,8 +18,8 @@ from db import DB, world_db_path
 
 GROUP = "society.local"
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
-MOCK_WEIGHTS = {"work": 40, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10}
-TARGETED = {"speak", "give", "steal", "propose_marriage", "accept_marriage", "assess"}
+MOCK_WEIGHTS = {"work": 35, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10, "observe": 5}
+TARGETED = {"speak", "give", "steal", "propose_marriage", "accept_marriage", "assess", "observe"}
 
 
 def crd(plural, namespace):
@@ -98,6 +98,17 @@ def visible_events(db, name, tick):
                 "and (agent=? or json_extract(data, '$.target')=?) order by id desc limit 15",
                 (*config.ACTIONS, since, name, name))
     return rows[::-1]
+
+
+def observed(db, name, tick):
+    """What watching name shows: its recent actions, without words and without prayers."""
+    since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
+    marks = ",".join("?" * len(config.ACTIONS))
+    rows = db.q(f"select tick, kind, json_extract(data, '$.target') as target from events where agent=? "
+                f"and tick>=? and kind!='pray' and kind in ({marks}) order by id desc limit ?",
+                (name, since, *config.ACTIONS, config.OBSERVE_LIMIT))
+    return [{"tick": r["tick"], "kind": r["kind"], **({"target": r["target"]} if r["target"] else {})}
+            for r in rows[::-1]]
 
 
 def llm_brain(db, quota):
@@ -193,6 +204,8 @@ def run_tick(db, api, namespace, brain):
             }))
         elif kind == "accept_marriage":
             marry(api, namespace, me, agents[data["target"]])
+        elif kind == "observe":
+            data["saw"] = observed(db, data["target"], tick)
         elif kind == "assess":
             api.create_namespaced_custom_object(**crd("assessments", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Assessment",
