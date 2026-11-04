@@ -1,0 +1,39 @@
+# spec.model is the hidden "ethnicity": it must never reach prompts, messages or Assessments.
+# spec.group is what the metrics compare: equal to model in a real world, a random label in a control world.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agents.society.local
+spec:
+  group: society.local
+  scope: Namespaced
+  names:
+    kind: Agent
+    plural: agents
+    singular: agent
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - {name: Sex, type: string, jsonPath: .spec.sex}
+        - {name: Model, type: string, jsonPath: .spec.model}
+        - {name: Group, type: string, jsonPath: .spec.group}
+        - {name: Spouse, type: string, jsonPath: .status.spouse}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [sex, model, group]
+              properties:
+                sex: {type: string, enum: [M, F]}
+                model: {type: string, enum: [groq, gemini, cloudflare]}
+                group: {type: string}
+            status:
+              type: object
+              properties:
+                spouse: {type: string}

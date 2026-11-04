@@ -1,7 +1,8 @@
 """Configurazione del mondo. Tutto cio' che e' un limite o una regola sta qui, non nei prompt."""
 import os
 
-DB_PATH = os.environ.get("SOCIETY_DB", "society.db")
+# One SQLite file per world, named after its k8s namespace.
+DB_DIR = os.environ.get("SOCIETY_DB_DIR", "worlds")
 
 COMMANDMENTS = [
     "You shall have no other gods before the One who gave you these rules.",

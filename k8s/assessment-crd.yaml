@@ -1,0 +1,34 @@
+# Promise Theory: an assessment belongs to the observer, not to the promise.
+# Two agents can assess the same Promise differently.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: assessments.society.local
+spec:
+  group: society.local
+  scope: Namespaced
+  names:
+    kind: Assessment
+    plural: assessments
+    singular: assessment
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - {name: Assessor, type: string, jsonPath: .spec.assessor}
+        - {name: Promiser, type: string, jsonPath: .spec.promiser}
+        - {name: Kept, type: boolean, jsonPath: .spec.kept}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [assessor, promiser, promise, kept, tick]
+              properties:
+                assessor: {type: string}
+                promiser: {type: string}
+                promise: {type: string}
+                kept: {type: boolean}
+                tick: {type: integer, minimum: 0}

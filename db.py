@@ -1,12 +1,19 @@
 import datetime
 import json
+import os
 import sqlite3
+
+import config
 
 SCHEMA = """
 create table if not exists events(id integer primary key, tick integer, kind text, agent text, data text);
 create table if not exists usage(day text, provider text, n integer default 0, primary key(day, provider));
 create table if not exists kv(key text primary key, value text);
 """
+
+
+def world_db_path(namespace):
+    return os.path.join(config.DB_DIR, f"{namespace}.db")
 
 
 class DB:
@@ -40,6 +47,10 @@ class DB:
     def log(self, kind, agent=None, **data):
         self.x("insert into events(tick,kind,agent,data) values(?,?,?,?)",
                (self.get("tick", 0), kind, agent, json.dumps(data, ensure_ascii=False)))
+
+    def violations(self, promiser, refrains, since_tick):
+        return self.one("select count(*) as n from events where agent=? and kind=? and tick>=?",
+                        (promiser, refrains, since_tick))["n"]
 
     # --- quote LLM (per giorno UTC) ---
     def usage(self, provider):

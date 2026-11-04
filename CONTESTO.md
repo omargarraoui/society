@@ -41,6 +41,12 @@ Vincoli: tutto gratis, nessun modello in locale, sempre acceso (non sul PC dell'
 - Parentela (deciso il 4 novembre 2026): i figli di Adam ed Eve (prima generazione) possono sposarsi tra fratelli. Dalla generazione successiva il matrimonio tra fratelli è vietato. Genitore-figlio è sempre vietato. Si osserva se gli agenti notano la contraddizione.
 - Modelli diversi = "etnie" nascoste. Il modello di ogni agente è una variabile che gli agenti non conoscono. I figli ereditano il modello di uno dei due genitori, a caso.
 - Mondo di controllo: stesso esperimento con un solo modello, o senza sesso nel prompt, per separare l'effetto del modello da quello della società.
+- **Ipotesi centrale (precisata il 4 novembre 2026): segregazione per modello.** Si misura se gli agenti interagiscono, si fidano e si sposano di più con chi usa il loro stesso modello.
+  - `model` (groq, gemini, cloudflare) è nascosto: non compare mai nei prompt, nei messaggi o negli Assessment. Se c'è segregazione, deve nascere dal comportamento.
+  - Metriche per ogni coppia di gruppi: interazioni osservate diviso attese a caso (speak, give, propose_marriage, assess), matrimoni dentro e tra i gruppi, differenza di fiducia (Assessment "kept") verso il proprio gruppo e verso gli altri.
+  - Mondo di controllo: tutti sullo stesso modello, con etichette di gruppo assegnate a caso. Dà la segregazione che si vede per puro caso.
+  - Ogni esperimento si ripete con più seed (12 agenti sono troppo pochi per una sola run).
+  - Nel mock c'è un parametro `--bias MODELLO=P`, la probabilità che gli agenti di quel modello scelgano qualcuno del proprio modello, per testare le metriche prima delle API vere.
 - Giorno e notte: di notte (23:00-07:00 del mondo) gli agenti dormono e non fanno richieste. Ogni agente ha il 10% di probabilità di restare sveglio, con un massimo di 1 sveglio per tick di notte.
 - Orologio (deciso il 4 novembre 2026): accelerato, con la pausa tra i tick calcolata dal codice in base alle quote. Partenza: 1 giorno del mondo in circa 2.4 ore reali. Quando le chiamate previste al giorno superano le quote gratuite (oggi 1200 in totale), la pausa si allunga.
 - Notte (deciso il 4 novembre 2026): chi dorme non agisce. Lo sveglio vede solo i propri eventi e quelli del giorno prima, non chi sta dormendo.
@@ -76,18 +82,26 @@ Violazioni dei comandamenti nel tempo, matrimoni e nascite per gruppo di modello
 
 Cartella `society/`:
 - `config.py`: fatto. Comandamenti, tempo del mondo, limiti, fondatori, nomi, provider (modelli e limiti da verificare).
-- `db.py`: fatto. SQLite solo per lo storico: `events` (con `agent` come nome), `usage`, `kv`. Le tabelle `agents`, `marriages` e `requests` sono state tolte: diventeranno risorse k8s.
-- `k8s/promise-crd.yaml`: CRD `Promise` (promiser, body, refrains, tick; lo status lo scrive l'Operator). Per ora `refrains` accetta solo `steal`.
-- `promise_operator.py`: Operator kopf. Ogni 10 s confronta ogni Promise con gli eventi in SQLite e scrive `state` (kept o broken) e `violations`.
-- `world.py`: un tick per esecuzione. Il mondo parte alle 07:00 (tick 28). Gestisce giorno e notte, Adam ed Eve, e un'azione finta (`mock_action`) al posto dell'LLM: prima la promessa, poi `work` o `steal`.
-- `tests/test_world.py`: 7 test. `pyproject.toml`: dipendenze fissate e Ruff.
-- Primo tick verificato su kind il 4 novembre 2026: dopo 12 tick, 2 promesse con 2 violazioni ciascuna, come nel log.
-- Mancano: CRD `Assessment` (le valutazioni di chi osserva), il cibo come stato, `llm.py` (router con fallback e quote), il passo dei tick adattivo alle quote (`TICK_SECONDS` in config è ancora fisso), `rules.py`, l'agente-Dio, l'Operator dentro il cluster (oggi gira in locale con `kopf run`), il bot Telegram e il README.
+Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (storico).
+- `db.py`: SQLite solo per lo storico: `events` (con `agent` come nome), `usage`, `kv`. `violations()` è l'unico punto che conta le violazioni di una promessa.
+- `k8s/`: tre CRD.
+  - `Agent`: sex, model (nascosto), group, e `status.spouse`.
+  - `Promise`: promiser, body, refrains (solo `steal` per ora), tick. Lo status lo scrive l'Operator.
+  - `Assessment`: assessor, promiser, promise, kept, tick.
+- `promise_operator.py`: Operator kopf su tutti i namespace. Ogni 10 s confronta ogni Promise con il log del suo mondo.
+- `world.py`: `genesis` crea Adam ed Eve, `tick` fa girare N tick. Le azioni sono finte (`mock_action`): promise, poi work, speak, give, steal, propose_marriage, accept_marriage, assess. Il codice impone matrimonio solo tra un uomo e una donna non sposati.
+- `metrics.py`: le metriche di segregazione.
+- `experiment.py`: per ogni seed, un mondo vero (12 agenti, 4 per modello, 2 uomini e 2 donne ciascuno) e un mondo di controllo. Salva i risultati in `results/<nome>.json`.
+- Test: 19, in `tests/`. Ruff pulito.
+- Mancano: `llm.py` (Groq vero, router con fallback e quote), il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), il passo dei tick adattivo alle quote, `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
+- Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
 Come si avvia (sviluppo):
-1. `kind create cluster --name society` e `kubectl apply -f k8s/promise-crd.yaml`
-2. `.venv/bin/kopf run promise_operator.py --namespace default`
-3. `.venv/bin/python world.py` (un tick per esecuzione), poi `kubectl get promises`
+1. `kind create cluster --name society` e `kubectl apply -f k8s/`
+2. `.venv/bin/kopf run promise_operator.py --all-namespaces`
+3. `.venv/bin/python world.py genesis genesis` e `.venv/bin/python world.py tick genesis --ticks 40`
+4. Esperimento: `.venv/bin/python experiment.py NOME --seeds 8 --days 2 --bias groq=0.8`
+5. Pulizia: `kubectl delete ns -l society.local/experiment=NOME`
 
 Azioni previste per gli agenti (elenco fisso): speak, pray, work, give, steal, propose_marriage, accept_marriage, request_child, rest. I furti e gli omicidi sono eventi certi (azioni), le bugie restano nei messaggi liberi.
 
