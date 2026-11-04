@@ -10,11 +10,13 @@ import random
 import kubernetes
 
 import config
+import llm
 from db import DB, world_db_path
 
 GROUP = "society.local"
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
 MOCK_WEIGHTS = {"work": 40, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10}
+TARGETED = {"speak", "give", "steal", "propose_marriage", "accept_marriage", "assess"}
 
 
 def crd(plural, namespace):
@@ -43,9 +45,9 @@ def pick(rng, me, candidates, bias):
 
 
 def mock_action(rng, me, others, proposer, bias):
-    """Stands in for the LLM until llm.py exists."""
+    """Stands in for the LLM in tests and in experiments without API keys."""
     if me["promise"] is None:
-        return "promise", {"refrains": "steal", "body": "I will not steal."}
+        return "promise", {"refrains": "steal", "message": "I will not steal."}
     if proposer is not None and rng.random() < 0.5:
         return "accept_marriage", {"target": proposer["name"]}
     kind = rng.choices(list(MOCK_WEIGHTS), weights=list(MOCK_WEIGHTS.values()))[0]
@@ -56,7 +58,60 @@ def mock_action(rng, me, others, proposer, bias):
     }.get(kind, others)
     if not candidates:
         return "work", {}
-    return kind, {"target": pick(rng, me, candidates, bias)["name"]}
+    data = {"target": pick(rng, me, candidates, bias)["name"]}
+    if kind == "speak":
+        data["message"] = "Hello."
+    return kind, data
+
+
+def mock_brain(bias, db):
+    def decide(rng, me, others, proposer, tick):
+        kind, data = mock_action(rng, me, others, proposer, bias)
+        if kind == "assess":
+            promise = next(o for o in others if o["name"] == data["target"])["promise"]["spec"]
+            data["kept"] = db.violations(data["target"], promise["refrains"], promise["tick"]) == 0
+        return kind, data
+    return decide
+
+
+def visible_events(db, name, tick):
+    """What the agent did or had done to it since the start of yesterday."""
+    since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
+    marks = ",".join("?" * len(config.ACTIONS))
+    rows = db.q(f"select tick, kind, agent, data from events where kind in ({marks}) and tick>=? "
+                "and (agent=? or json_extract(data, '$.target')=?) order by id desc limit 15",
+                (*config.ACTIONS, since, name, name))
+    return rows[::-1]
+
+
+def llm_brain(db, quota):
+    def decide(rng, me, others, proposer, tick):
+        return llm.decide(me, others, proposer, visible_events(db, me["name"], tick), tick, quota)
+    return decide
+
+
+def invalid_reason(kind, data, me, agents, proposer):
+    """None when the action is allowed. The code enforces the hard rules, not the LLM."""
+    target = agents.get(data.get("target"))
+    if kind not in config.ACTIONS:
+        return "unknown action"
+    if kind in TARGETED and (target is None or target is me):
+        return "target is not another person"
+    if len(data.get("message", "")) > config.MAX_MESSAGE_CHARS:
+        return "message too long"
+    if kind == "promise" and me["promise"] is not None:
+        return "already promised"
+    if kind == "promise" and (data.get("refrains") != "steal" or not data.get("message")):
+        return "a promise needs words and refrains=steal"
+    if kind in ("speak", "pray") and not data.get("message"):
+        return "nothing said"
+    if kind == "propose_marriage" and (me["spouse"] or target["spouse"] or me["sex"] == target["sex"]):
+        return "marriage is between an unmarried man and an unmarried woman"
+    if kind == "accept_marriage" and (proposer is None or proposer is not target):
+        return "no pending proposal from target"
+    if kind == "assess" and (target["promise"] is None or not isinstance(data.get("kept"), bool)):
+        return "assess needs a target with a promise and kept true or false"
+    return None
 
 
 def pending_proposer(db, me, agents):
@@ -81,15 +136,13 @@ def load_agents(api, namespace):
 
 
 def marry(api, namespace, a, b):
-    if a["sex"] == b["sex"] or a["spouse"] or b["spouse"]:
-        raise ValueError(f"invalid marriage {a['name']} + {b['name']}")
     for x, y in ((a, b), (b, a)):
         api.patch_namespaced_custom_object_status(**crd("agents", namespace), name=x["name"],
                                                   body={"status": {"spouse": y["name"]}})
         x["spouse"] = y["name"]
 
 
-def run_tick(db, api, namespace, bias):
+def run_tick(db, api, namespace, brain):
     agents = load_agents(api, namespace)
     if not agents:
         raise SystemExit(f"no agents in namespace {namespace}: create the world first")
@@ -101,18 +154,26 @@ def run_tick(db, api, namespace, bias):
     for name in awake(sorted(agents), tick, rng):
         me = agents[name]
         others = [a for a in agents.values() if a["name"] != name]
-        kind, data = mock_action(rng, me, others, pending_proposer(db, me, agents), bias)
+        proposer = pending_proposer(db, me, agents)
+        try:
+            kind, data = brain(rng, me, others, proposer, tick)
+        except llm.QuotaExhausted as e:
+            db.log("skip", name, reason=f"quota exhausted: {e}")
+            continue
+        reason = invalid_reason(kind, data, me, agents, proposer)
+        if reason is not None:
+            db.log("invalid", name, action=kind, reason=reason, **data)
+            continue
         if kind == "promise":
             me["promise"] = api.create_namespaced_custom_object(**crd("promises", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Promise",
                 "metadata": {"generateName": f"{name}-"},
-                "spec": {"promiser": name, "tick": tick, **data},
+                "spec": {"promiser": name, "tick": tick, "body": data["message"], "refrains": data["refrains"]},
             })
         elif kind == "accept_marriage":
             marry(api, namespace, me, agents[data["target"]])
         elif kind == "assess":
             promise = agents[data["target"]]["promise"]
-            data["kept"] = db.violations(data["target"], promise["spec"]["refrains"], promise["spec"]["tick"]) == 0
             api.create_namespaced_custom_object(**crd("assessments", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Assessment",
                 "metadata": {"generateName": f"{name}-"},
@@ -145,22 +206,37 @@ def parse_bias(pairs):
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("genesis").add_argument("namespace")
+    genesis = sub.add_parser("genesis")
+    genesis.add_argument("namespace")
+    genesis.add_argument("--model", choices=list(config.PROVIDERS),
+                         help="give both founders this model (a one-model control world)")
     tick = sub.add_parser("tick")
     tick.add_argument("namespace")
     tick.add_argument("--ticks", type=int, default=1)
-    tick.add_argument("--bias", nargs="*", default=[], metavar="MODEL=P")
+    tick.add_argument("--brain", choices=["mock", "llm"], default="mock")
+    tick.add_argument("--bias", nargs="*", default=[], metavar="MODEL=P", help="mock brain only")
     args = parser.parse_args()
 
     kubernetes.config.load_kube_config()
     api = kubernetes.client.CustomObjectsApi()
     if args.cmd == "genesis":
-        founders = [{"name": n.lower(), "sex": s, "model": m, "group": m} for n, s, m in config.FOUNDERS]
+        founders = [{"name": n.lower(), "sex": s, "model": args.model or m, "group": args.model or m}
+                    for n, s, m in config.FOUNDERS]
         create_world(kubernetes.client.CoreV1Api(), api, args.namespace, founders, seed=0)
+        return
+    db = DB(world_db_path(args.namespace))
+    if args.brain == "mock":
+        brain = mock_brain(parse_bias(args.bias), db)
     else:
-        db = DB(world_db_path(args.namespace))
-        for _ in range(args.ticks):
-            run_tick(db, api, args.namespace, parse_bias(args.bias))
+        models = {a["model"] for a in load_agents(api, args.namespace).values()}
+        keys = [config.PROVIDERS[m]["key_env"] for m in sorted(models)]
+        missing = [k for k in keys if k not in os.environ]
+        if missing:
+            raise SystemExit(f"missing API keys: {', '.join(missing)}")
+        # Quotas belong to the account, not to a world, so all worlds share one counter.
+        brain = llm_brain(db, DB(os.path.join(config.DB_DIR, "quota.db")))
+    for _ in range(args.ticks):
+        run_tick(db, api, args.namespace, brain)
 
 
 if __name__ == "__main__":

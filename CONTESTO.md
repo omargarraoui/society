@@ -25,6 +25,8 @@ Vincoli: tutto gratis, nessun modello in locale, sempre acceso (non sul PC dell'
 
 **Infrastruttura e costi**
 - LLM solo tramite API gratuite, con catena di fallback (formato OpenAI-compatibile): Groq come principale, Gemini (AI Studio) e Cloudflare Workers AI come riserve. OpenRouter solo come ultimo fallback (limite basso).
+- **Niente fallback tra provider (deciso il 4 novembre 2026, sostituisce la catena di fallback):** il provider è il modello nascosto dell'agente, quindi un altro provider che risponde al suo posto contaminerebbe l'esperimento. Se il provider di un agente esaurisce le quote, l'agente salta il turno e nel log finisce un evento `skip`.
+- Limiti gratuiti di Groq (visti su console.groq.com il 4 novembre 2026) per gpt-oss-120b: 30 richieste al minuto, 8000 token al minuto, 1000 richieste al giorno, 200000 token al giorno. Il limite che morde è quello dei token.
 - k8s subito (deciso il 4 novembre 2026, sostituisce "k8s opzionale"): CRD, Operator e RBAC reali. Sviluppo su cluster locale kind; dove farlo girare sempre acceso si decide dopo (la VM Oracle Cloud Always Free resta un'ipotesi).
   - CRD `Promise`: la promessa di un agente sul proprio comportamento.
   - CRD `Assessment`: la valutazione scritta da chi osserva, risorsa separata dalla promessa.
@@ -92,14 +94,17 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
 - `world.py`: `genesis` crea Adam ed Eve, `tick` fa girare N tick. Le azioni sono finte (`mock_action`): promise, poi work, speak, give, steal, propose_marriage, accept_marriage, assess. Il codice impone matrimonio solo tra un uomo e una donna non sposati.
 - `metrics.py`: le metriche di segregazione.
 - `experiment.py`: per ogni seed, un mondo vero (12 agenti, 4 per modello, 2 uomini e 2 donne ciascuno) e un mondo di controllo. Salva i risultati in `results/<nome>.json`.
-- Test: 19, in `tests/`. Ruff pulito.
-- Mancano: `llm.py` (Groq vero, router con fallback e quote), il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), il passo dei tick adattivo alle quote, `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
+- Test: 40, in `tests/`. Ruff pulito.
+- `llm.py`: il turno di un agente via API OpenAI-compatibile. Risposta in JSON con schema stretto (structured outputs di Groq). Il prompt contiene nomi, sesso, matrimoni ed eventi visti, mai `model` o `group` (c'è un test). Quote contate per giorno UTC in `worlds/quota.db`, condivise tra i mondi.
+- `world.py`: `--brain mock|llm`. Ogni azione, del mock o dell'LLM, passa da `invalid_reason()`: le regole dure le impone il codice. Un'azione rifiutata finisce nel log come `invalid`, con il motivo.
+- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), il passo dei tick adattivo alle quote, `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
 Come si avvia (sviluppo):
 1. `kind create cluster --name society` e `kubectl apply -f k8s/`
 2. `.venv/bin/kopf run promise_operator.py --all-namespaces`
-3. `.venv/bin/python world.py genesis genesis` e `.venv/bin/python world.py tick genesis --ticks 40`
+3. `.venv/bin/python world.py genesis genesis` e `.venv/bin/python world.py tick genesis --ticks 40` (mock)
+   LLM vero: le chiavi in `.env` (mai nel repo), poi `set -a; source .env; set +a; .venv/bin/python world.py tick genesis --brain llm`
 4. Esperimento: `.venv/bin/python experiment.py NOME --seeds 8 --days 2 --bias groq=0.8`
 5. Pulizia: `kubectl delete ns -l society.local/experiment=NOME`
 

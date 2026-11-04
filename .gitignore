@@ -6,3 +6,4 @@ __pycache__/
 operator.log
 worlds/
 results/
+.env

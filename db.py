@@ -7,9 +7,14 @@ import config
 
 SCHEMA = """
 create table if not exists events(id integer primary key, tick integer, kind text, agent text, data text);
-create table if not exists usage(day text, provider text, n integer default 0, primary key(day, provider));
+create table if not exists usage(
+  day text, provider text, n integer default 0, tokens integer default 0, primary key(day, provider));
 create table if not exists kv(key text primary key, value text);
 """
+
+
+def utc_day():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
 def world_db_path(namespace):
@@ -54,11 +59,11 @@ class DB:
 
     # --- quote LLM (per giorno UTC) ---
     def usage(self, provider):
-        day = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-        r = self.one("select n from usage where day=? and provider=?", (day, provider))
-        return r["n"] if r else 0
+        """(requests, tokens) used today."""
+        r = self.one("select n, tokens from usage where day=? and provider=?", (utc_day(), provider))
+        return (r["n"], r["tokens"]) if r else (0, 0)
 
-    def add_usage(self, provider):
-        day = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-        self.x("insert into usage(day,provider,n) values(?,?,1) "
-               "on conflict(day,provider) do update set n=n+1", (day, provider))
+    def add_usage(self, provider, tokens):
+        self.x("insert into usage(day,provider,n,tokens) values(?,?,1,?) "
+               "on conflict(day,provider) do update set n=n+1, tokens=tokens+excluded.tokens",
+               (utc_day(), provider, tokens))

@@ -33,6 +33,11 @@ WORK_GAIN = 2
 STARVE_BELOW = -2         # sotto questa soglia di cibo l'agente muore
 MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 
+# Elenco fisso: il codice rifiuta qualsiasi altra azione.
+ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
+           "propose_marriage", "accept_marriage", "assess"]
+MAX_MESSAGE_CHARS = 300
+
 # --- Fondatori: (nome, sesso, modello nascosto) ---
 FOUNDERS = [("Adam", "M", "groq"), ("Eve", "F", "gemini")]
 GOD_MODEL = "cloudflare"  # il modello dell'agente-Dio e' separato da quello dei gruppi
@@ -46,19 +51,29 @@ PROVIDERS = {
         "base_url": "https://api.groq.com/openai/v1",
         "model": "openai/gpt-oss-120b",
         "key_env": "GROQ_API_KEY",
-        "daily_cap": 600,
+        # Piano gratuito, visto su console.groq.com il 4/11/2026: 30 RPM, 8K TPM, 1000 RPD, 200K TPD.
+        # Il limite che morde e' quello dei token: circa 1000 token a turno = circa 200 turni al giorno.
+        "daily_requests": 1000,
+        "daily_tokens": 200_000,
+        "extra": {"reasoning_effort": "low"},
     },
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
         "model": "gemini-2.5-flash",
         "key_env": "GEMINI_API_KEY",
-        "daily_cap": 400,
+        # Limiti NON verificati.
+        "daily_requests": 400,
+        "daily_tokens": None,
+        "extra": {},
     },
     "cloudflare": {
         # imposta CLOUDFLARE_ACCOUNT_ID oltre a CLOUDFLARE_API_TOKEN
         "base_url": "https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1",
         "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
         "key_env": "CLOUDFLARE_API_TOKEN",
-        "daily_cap": 200,
+        # Limiti NON verificati.
+        "daily_requests": 200,
+        "daily_tokens": None,
+        "extra": {},
     },
 }

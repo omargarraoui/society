@@ -15,7 +15,7 @@ import kubernetes
 import config
 from db import DB, world_db_path
 from metrics import segregation
-from world import create_world, parse_bias, run_tick
+from world import create_world, mock_brain, parse_bias, run_tick
 
 MODELS = list(config.PROVIDERS)
 
@@ -38,7 +38,7 @@ def run(core, api, name, world, seed, days, bias, control_model):
     create_world(core, api, namespace, agents, seed, labels={"society.local/experiment": name})
     db = DB(world_db_path(namespace))
     for _ in range(days * config.TICKS_PER_DAY):
-        run_tick(db, api, namespace, bias)
+        run_tick(db, api, namespace, mock_brain(bias, db))
     events = db.q("select agent, kind, json_extract(data, '$.target') as target, "
                   "json_extract(data, '$.kept') as kept from events")
     return segregation(events, agents)

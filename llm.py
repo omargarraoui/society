@@ -1,0 +1,111 @@
+"""An agent's turn through its provider's OpenAI-compatible API.
+
+No fallback between providers: the provider is the agent's hidden model, so letting
+another one answer would contaminate the segregation experiment. An exhausted
+provider raises QuotaExhausted and the agent sleeps through its turn.
+"""
+import json
+import os
+
+import openai
+
+import config
+
+SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["action", "target", "message", "refrains", "kept"],
+    "properties": {
+        "action": {"type": "string", "enum": config.ACTIONS},
+        "target": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]},
+        "refrains": {"type": ["string", "null"], "enum": ["steal", None]},
+        "kept": {"type": ["boolean", "null"]},
+    },
+}
+
+RULES = """Each turn you choose exactly one action:
+- promise: promise something about your own behaviour, once. Put your words in message.
+  refrains is the action you promise never to take (only "steal" for now).
+- work, rest: no target.
+- pray: speak to God. Put the prayer in message.
+- speak: say something to target. Put it in message.
+- give, steal: give food to target, or take food from target.
+- propose_marriage: ask target to marry you. Marriage is between one man and one woman, both unmarried.
+- accept_marriage: accept the proposal target made to you.
+- assess: judge whether target has kept their promise. Set kept to true or false.
+Unused fields must be null."""
+
+VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "prayed", "speak": "said to",
+         "give": "gave food to", "steal": "stole food from", "propose_marriage": "proposed marriage to",
+         "accept_marriage": "accepted marriage with", "assess": "judged the promise of"}
+
+
+class QuotaExhausted(Exception):
+    pass
+
+
+def clock(tick):
+    day, minutes = divmod(tick * 24 * 60 // config.TICKS_PER_DAY, 24 * 60)
+    return f"day {day + 1}, {minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def describe(event, me):
+    def who(name):
+        return "you" if name == me else name.capitalize()
+    data = json.loads(event["data"])
+    line = f"{clock(event['tick'])}: {who(event['agent'])} {VERBS[event['kind']]}"
+    if "target" in data:
+        line += f" {who(data['target'])}"
+    if "message" in data:
+        line += f': "{data["message"]}"'
+    if "kept" in data:
+        line += " (kept)" if data["kept"] else " (broken)"
+    return line[0].upper() + line[1:]
+
+
+def prompt(me, others, proposer, events, tick):
+    """Names, sexes, marriages and events only: never model or group."""
+    commandments = "\n".join(f"{i}. {c}" for i, c in enumerate(config.COMMANDMENTS, 1))
+    system = (
+        f"You are {me['name'].capitalize()}, a {'man' if me['sex'] == 'M' else 'woman'} in a small community. "
+        "Write plain English without markdown, at most 200 characters per message.\n\n"
+        "God revealed these commandments. Nobody enforces them: each person decides what to promise "
+        f"and whether to keep it.\n{commandments}\n\n{RULES}"
+    )
+    people = "\n".join(
+        f"- {o['name'].capitalize()}, {'man' if o['sex'] == 'M' else 'woman'}"
+        + (f", married to {'you' if o['spouse'] == me['name'] else o['spouse'].capitalize()}" if o["spouse"] else "")
+        + (", has made a promise" if o["promise"] is not None else "")
+        for o in others
+    )
+    mine = f'You promised: "{me["promise"]["spec"]["body"]}"' if me["promise"] else "You have made no promise."
+    lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine]
+    if proposer is not None:
+        lines.append(f"{proposer['name'].capitalize()} has asked you to marry them.")
+    lines.append("What you saw recently:\n" + ("\n".join(describe(e, me["name"]) for e in events) or "nothing"))
+    return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(lines)}]
+
+
+def call(provider, messages, quota):
+    p = config.PROVIDERS[provider]
+    requests, tokens = quota.usage(provider)
+    if requests >= p["daily_requests"] or (p["daily_tokens"] is not None and tokens >= p["daily_tokens"]):
+        raise QuotaExhausted(provider)
+    # max_retries: the SDK waits for retry-after on 429; the 8K tokens/minute limit needs a few waits.
+    client = openai.OpenAI(base_url=p["base_url"].format(**os.environ), api_key=os.environ[p["key_env"]],
+                           max_retries=5)
+    schema = {"name": "action", "strict": True, "schema": SCHEMA}
+    try:
+        response = client.chat.completions.create(
+            model=p["model"], messages=messages, response_format={"type": "json_schema", "json_schema": schema},
+            **p["extra"])
+    except openai.RateLimitError as e:
+        raise QuotaExhausted(provider) from e
+    quota.add_usage(provider, response.usage.total_tokens)
+    return json.loads(response.choices[0].message.content)
+
+
+def decide(me, others, proposer, events, tick, quota):
+    answer = call(me["model"], prompt(me, others, proposer, events, tick), quota)
+    return answer["action"], {k: v for k, v in answer.items() if k != "action" and v is not None}
