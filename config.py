@@ -66,13 +66,13 @@ PROVIDERS = {
     },
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        # Stabile (4/11/2026). Non gemini-2.5-flash: dal 1/12/2026 Google lo instrada su un altro modello,
-        # e il modello nascosto dell'agente cambierebbe a meta' esperimento.
-        "model": "gemini-3.6-flash",
+        # Stabile e consigliato da Google (4/11/2026). Non gemini-2.5-flash: dal 1/12/2026 viene instradato
+        # su un altro modello, e il modello nascosto dell'agente cambierebbe a meta' esperimento.
+        "model": "gemini-3.5-flash-lite",
         "key_env": "GEMINI_API_KEY",
-        # Google non pubblica piu' i limiti gratuiti. 20 al giorno letto nell'errore 429 dell'API
-        # (GenerateRequestsPerDayPerProjectPerModel-FreeTier, 4/11/2026). Azzeramento a mezzanotte del Pacifico.
-        "daily_requests": 20,
+        # Piano gratuito letto su aistudio.google.com/rate-limit il 4/11/2026: 15 RPM, 250K TPM, 500 RPD.
+        # (gemini-3.6-flash ne dava solo 20.) Le quote si azzerano a mezzanotte del Pacifico.
+        "daily_requests": 500,
         "daily_tokens": None,
         "turn_tokens": None,
         "quota_tz": "America/Los_Angeles",

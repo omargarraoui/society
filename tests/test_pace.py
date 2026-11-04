@@ -23,10 +23,10 @@ def test_two_groq_agents_are_limited_by_tokens():
 
 def test_the_slowest_provider_sets_the_pace():
     # Each model: 4*64 + 32*4/12 = 266.7 turns per world day.
-    # groq budget 227.8 -> 0.854; gemini 20 * 0.9 = 18 -> 0.0675; cloudflare 200 * 0.9 = 180 -> 0.675.
+    # groq budget 227.8 -> 0.854; gemini 500 * 0.9 = 450 -> 1.69; cloudflare 200 * 0.9 = 180 -> 0.675.
     speed = world_days_per_day(Counter(groq=4, gemini=4, cloudflare=4), {"groq": 790, "gemini": None,
                                                                         "cloudflare": None})
-    assert speed == pytest.approx(18 / 266.67, rel=1e-3)
+    assert speed == pytest.approx(180 / 266.67, rel=1e-3)
 
 
 def test_speed_never_exceeds_the_cap(monkeypatch):
