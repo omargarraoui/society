@@ -11,8 +11,8 @@ MIDNIGHT = 0
 PROMISE = {"metadata": {"name": "p"}, "spec": {"refrains": "steal", "tick": 0}}
 
 
-def agent(name, model, sex="M", promise=PROMISE, spouse=None):
-    return {"name": name, "model": model, "sex": sex, "promise": promise, "spouse": spouse}
+def agent(name, model, sex="M", promises=(PROMISE,), spouse=None):
+    return {"name": name, "model": model, "sex": sex, "promises": list(promises), "spouse": spouse}
 
 
 def test_everyone_is_awake_at_noon():
@@ -25,7 +25,7 @@ def test_at_most_one_awake_at_night():
 
 
 def test_first_action_is_the_promise():
-    me = agent("adam", "groq", promise=None)
+    me = agent("adam", "groq", promises=())
     assert mock_action(random.Random(0), me, [agent("eve", "gemini")], None, {}) == (
         "promise", {"refrains": "steal", "message": "I will not steal."})
 
@@ -95,14 +95,16 @@ AGENTS = {"adam": ADAM, "eve": EVE, "seth": SETH}
     ("speak", {"target": "noah", "message": "hello"}, None, "target is not another person"),
     ("speak", {"target": "eve"}, None, "nothing said"),
     ("speak", {"target": "eve", "message": "x" * 301}, None, "message too long"),
-    ("promise", {"refrains": "steal", "message": "I will not steal."}, None, "already promised"),
+    ("promise", {"refrains": "steal", "message": "I will not steal."}, None, None),  # a second promise
     ("propose_marriage", {"target": "seth"}, None,
      "marriage is between an unmarried man and an unmarried woman"),
     ("propose_marriage", {"target": "eve"}, None, None),
     ("accept_marriage", {"target": "eve"}, None, "no pending proposal from target"),
     ("accept_marriage", {"target": "eve"}, EVE, None),
-    ("assess", {"target": "eve"}, None, "assess needs a target with a promise and kept true or false"),
-    ("assess", {"target": "eve", "kept": False}, None, None),
+    ("assess", {"target": "eve", "kept": False}, None, "assess needs one of target's promises"),
+    ("assess", {"target": "eve", "promise": "zzz", "kept": False}, None, "assess needs one of target's promises"),
+    ("assess", {"target": "eve", "promise": "p"}, None, "assess needs kept true or false"),
+    ("assess", {"target": "eve", "promise": "p", "kept": False}, None, None),
     ("fly", {}, None, "unknown action"),
 ])
 def test_invalid_reason(kind, data, proposer, reason):
@@ -110,13 +112,13 @@ def test_invalid_reason(kind, data, proposer, reason):
 
 
 def test_first_promise_is_valid():
-    me = agent("adam", "groq", promise=None)
+    me = agent("adam", "groq", promises=())
     data = {"refrains": "steal", "message": "I will not steal."}
     assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None) is None
 
 
 def test_mock_only_produces_valid_actions(tmp_path):
-    others = [EVE, SETH, agent("adah", "gemini", sex="F", promise=None)]
+    others = [EVE, SETH, agent("adah", "gemini", sex="F", promises=())]
     decide = mock_brain({}, DB(str(tmp_path / "t.db")))
     for seed in range(300):
         kind, data = decide(random.Random(seed), ADAM, others, EVE, tick=40)
@@ -130,13 +132,13 @@ def test_mock_only_produces_valid_actions(tmp_path):
     ({"refrains": "steal"}, "a promise needs words"),
 ])
 def test_free_promises_are_accepted(data, reason):
-    me = agent("adam", "groq", promise=None)
+    me = agent("adam", "groq", promises=())
     assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None) == reason
 
 
 def test_mock_never_assesses_a_promise_it_cannot_check(tmp_path):
     free = {"metadata": {"name": "f"}, "spec": {"body": "I will rest on the seventh day.", "tick": 0}}
-    others = [agent("eve", "gemini", sex="F", promise=free)]
+    others = [agent("eve", "gemini", sex="F", promises=[free])]
     decide = mock_brain({}, DB(str(tmp_path / "t.db")))
     kinds = {decide(random.Random(s), ADAM, others, None, tick=40)[0] for s in range(300)}
     assert "assess" not in kinds

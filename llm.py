@@ -14,18 +14,19 @@ import config
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "target", "message", "refrains", "kept"],
+    "required": ["action", "target", "message", "refrains", "promise", "kept"],
     "properties": {
         "action": {"type": "string", "enum": config.ACTIONS},
         "target": {"type": ["string", "null"]},
         "message": {"type": ["string", "null"]},
         "refrains": {"type": ["string", "null"], "enum": ["steal", None]},
+        "promise": {"type": ["string", "null"]},
         "kept": {"type": ["boolean", "null"]},
     },
 }
 
 RULES = """Each turn you choose exactly one action:
-- promise: promise anything about your own behaviour, once, in your own words (message).
+- promise: promise anything about your own behaviour, in your own words (message). You can make several.
   If you promise never to steal, also set refrains to "steal"; otherwise leave refrains null.
 - work, rest: no target.
 - pray: speak to God. Put the prayer in message.
@@ -33,7 +34,7 @@ RULES = """Each turn you choose exactly one action:
 - give, steal: give food to target, or take food from target.
 - propose_marriage: ask target to marry you. Marriage is between one man and one woman, both unmarried.
 - accept_marriage: accept the proposal target made to you.
-- assess: judge whether target has kept their promise. Set kept to true or false.
+- assess: judge whether target has kept one of their promises. Set promise to its [id] and kept to true or false.
 Unused fields must be null."""
 
 VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "prayed", "speak": "said to",
@@ -84,10 +85,10 @@ def prompt(me, others, proposer, events, tick):
     people = "\n".join(
         f"- {o['name'].capitalize()}, {'man' if o['sex'] == 'M' else 'woman'}"
         + (f", married to {'you' if o['spouse'] == me['name'] else o['spouse'].capitalize()}" if o["spouse"] else "")
-        + (f', promised: "{o["promise"]["spec"]["body"]}"' if o["promise"] is not None else "")
+        + "".join(f'\n  promised [{p["metadata"]["name"]}]: "{p["spec"]["body"]}"' for p in o["promises"])
         for o in others
     )
-    mine = f'You promised: "{me["promise"]["spec"]["body"]}"' if me["promise"] else "You have made no promise."
+    mine = "\n".join(f'You promised: "{p["spec"]["body"]}"' for p in me["promises"]) or "You have made no promise."
     lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine]
     if proposer is not None:
         lines.append(f"{proposer['name'].capitalize()} has asked you to marry them.")
@@ -117,11 +118,19 @@ def call(provider, messages, quota):
     return json.loads(response.choices[0].message.content)
 
 
+ONLY_FOR = {"refrains": "promise", "promise": "assess", "kept": "assess"}
+
+
 def parse(answer):
-    data = {k: v for k, v in answer.items() if k != "action" and v is not None}
+    # Seen live: the model fills fields the action does not use, despite the rules. They are dropped.
+    data = {k: v for k, v in answer.items()
+            if k != "action" and v is not None and ONLY_FOR.get(k, answer["action"]) == answer["action"]}
     if "target" in data:
         # The prompt shows capitalized names; agent ids are lowercase.
         data["target"] = data["target"].strip().lower()
+    if "promise" in data:
+        # The prompt shows ids in [brackets].
+        data["promise"] = data["promise"].strip(" []")
     return answer["action"], data
 
 

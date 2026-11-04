@@ -9,8 +9,8 @@ from db import DB, quota_day
 from llm import QuotaExhausted, call, clock, describe, parse, prompt
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
-ADAM = {"name": "adam", "sex": "M", "model": "groq", "group": "groq", "spouse": "eve", "promise": PROMISE}
-EVE = {"name": "eve", "sex": "F", "model": "gemini", "group": "gemini", "spouse": "adam", "promise": None}
+ADAM = {"name": "adam", "sex": "M", "model": "groq", "group": "groq", "spouse": "eve", "promises": [PROMISE]}
+EVE = {"name": "eve", "sex": "F", "model": "gemini", "group": "gemini", "spouse": "adam", "promises": []}
 
 
 def event(tick, kind, agent, **data):
@@ -73,6 +73,21 @@ def test_gemini_quota_day_follows_pacific_time():
 
 
 def test_prompt_shows_what_others_promised():
-    eve = {**EVE, "promise": {"metadata": {"name": "q"}, "spec": {"body": "I will rest on the seventh day."}}}
-    text = prompt(ADAM, [eve], None, [], 40)[1]["content"]
-    assert 'Eve, woman, married to you, promised: "I will rest on the seventh day."' in text
+    rest = {"metadata": {"name": "eve-q1"}, "spec": {"body": "I will rest on the seventh day."}}
+    share = {"metadata": {"name": "eve-q2"}, "spec": {"body": "I will share my bread."}}
+    text = prompt(ADAM, [{**EVE, "promises": [rest, share]}], None, [], 40)[1]["content"]
+    assert ('- Eve, woman, married to you\n  promised [eve-q1]: "I will rest on the seventh day."\n'
+            '  promised [eve-q2]: "I will share my bread."') in text
+
+
+def test_parse_strips_the_brackets_around_a_promise_id():
+    answer = {"action": "assess", "target": "Eve", "message": None, "refrains": None, "promise": "[eve-q1]",
+              "kept": True}
+    assert parse(answer) == ("assess", {"target": "eve", "promise": "eve-q1", "kept": True})
+
+
+def test_parse_drops_fields_the_action_does_not_use():
+    # Seen live on Groq: a promise with the promise-id field filled with text.
+    answer = {"action": "promise", "target": None, "message": "I will work hard.", "refrains": None,
+              "promise": "I will work hard.", "kept": False}
+    assert parse(answer) == ("promise", {"message": "I will work hard."})

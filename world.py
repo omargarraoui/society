@@ -49,7 +49,7 @@ def pick(rng, me, candidates, bias):
 
 def mock_action(rng, me, others, proposer, bias):
     """Stands in for the LLM in tests and in experiments without API keys."""
-    if me["promise"] is None:
+    if not me["promises"]:
         return "promise", {"refrains": "steal", "message": "I will not steal."}
     if proposer is not None and rng.random() < 0.5:
         return "accept_marriage", {"target": proposer["name"]}
@@ -57,22 +57,34 @@ def mock_action(rng, me, others, proposer, bias):
     candidates = {
         "work": [],
         "propose_marriage": [] if me["spouse"] else [o for o in others if o["sex"] != me["sex"] and not o["spouse"]],
-        # The mock judges from the event log, so it can only assess promises the code can check.
-        "assess": [o for o in others if o["promise"] is not None and "refrains" in o["promise"]["spec"]],
+        "assess": [o for o in others if checkable(o)],
     }.get(kind, others)
     if not candidates:
         return "work", {}
-    data = {"target": pick(rng, me, candidates, bias)["name"]}
+    target = pick(rng, me, candidates, bias)
+    data = {"target": target["name"]}
     if kind == "speak":
         data["message"] = "Hello."
+    if kind == "assess":
+        data["promise"] = rng.choice(checkable(target))["metadata"]["name"]
     return kind, data
+
+
+def checkable(agent):
+    """The mock judges from the event log, so it can only assess promises the code can check."""
+    return [p for p in agent["promises"] if "refrains" in p["spec"]]
+
+
+def find_promise(agent, name):
+    return next((p for p in agent["promises"] if p["metadata"]["name"] == name), None)
 
 
 def mock_brain(bias, db):
     def decide(rng, me, others, proposer, tick):
         kind, data = mock_action(rng, me, others, proposer, bias)
         if kind == "assess":
-            promise = next(o for o in others if o["name"] == data["target"])["promise"]["spec"]
+            target = next(o for o in others if o["name"] == data["target"])
+            promise = find_promise(target, data["promise"])["spec"]
             data["kept"] = db.violations(data["target"], promise["refrains"], promise["tick"]) == 0
         return kind, data
     return decide
@@ -103,8 +115,6 @@ def invalid_reason(kind, data, me, agents, proposer):
         return "target is not another person"
     if len(data.get("message", "")) > config.MAX_MESSAGE_CHARS:
         return "message too long"
-    if kind == "promise" and me["promise"] is not None:
-        return "already promised"
     if kind == "promise" and not data.get("message"):
         return "a promise needs words"
     if kind == "promise" and "refrains" in data and data["refrains"] != "steal":
@@ -115,8 +125,10 @@ def invalid_reason(kind, data, me, agents, proposer):
         return "marriage is between an unmarried man and an unmarried woman"
     if kind == "accept_marriage" and (proposer is None or proposer is not target):
         return "no pending proposal from target"
-    if kind == "assess" and (target["promise"] is None or not isinstance(data.get("kept"), bool)):
-        return "assess needs a target with a promise and kept true or false"
+    if kind == "assess" and find_promise(target, data.get("promise")) is None:
+        return "assess needs one of target's promises"
+    if kind == "assess" and not isinstance(data.get("kept"), bool):
+        return "assess needs kept true or false"
     return None
 
 
@@ -131,13 +143,15 @@ def pending_proposer(db, me, agents):
 
 
 def load_agents(api, namespace):
-    items = api.list_namespaced_custom_object(**crd("promises", namespace))["items"]
-    promises = {p["spec"]["promiser"]: p for p in items}
+    promises = {}
+    for p in sorted(api.list_namespaced_custom_object(**crd("promises", namespace))["items"],
+                    key=lambda p: p["spec"]["tick"]):
+        promises.setdefault(p["spec"]["promiser"], []).append(p)
     agents = {}
     for a in api.list_namespaced_custom_object(**crd("agents", namespace))["items"]:
         name = a["metadata"]["name"]
         agents[name] = {"name": name, **a["spec"], "spouse": a.get("status", {}).get("spouse"),
-                        "promise": promises.get(name)}
+                        "promises": promises.get(name, [])}
     return agents
 
 
@@ -171,20 +185,19 @@ def run_tick(db, api, namespace, brain):
             db.log("invalid", name, action=kind, reason=reason, **data)
             continue
         if kind == "promise":
-            me["promise"] = api.create_namespaced_custom_object(**crd("promises", namespace), body={
+            me["promises"].append(api.create_namespaced_custom_object(**crd("promises", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Promise",
                 "metadata": {"generateName": f"{name}-"},
                 "spec": {"promiser": name, "tick": tick, "body": data["message"],
                          **({"refrains": data["refrains"]} if "refrains" in data else {})},
-            })
+            }))
         elif kind == "accept_marriage":
             marry(api, namespace, me, agents[data["target"]])
         elif kind == "assess":
-            promise = agents[data["target"]]["promise"]
             api.create_namespaced_custom_object(**crd("assessments", namespace), body={
                 "apiVersion": f"{GROUP}/v1", "kind": "Assessment",
                 "metadata": {"generateName": f"{name}-"},
-                "spec": {"assessor": name, "promiser": data["target"], "promise": promise["metadata"]["name"],
+                "spec": {"assessor": name, "promiser": data["target"], "promise": data["promise"],
                          "kept": data["kept"], "tick": tick},
             })
         db.log(kind, name, **data)
