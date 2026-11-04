@@ -1,0 +1,23 @@
+# Run once, before the Deployment: creates the "genesis" world (namespace, Adam and Eve, SQLite file).
+# Running it again fails on purpose: a world is never created twice.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: genesis
+  namespace: society-system
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: society
+      restartPolicy: Never
+      volumes:
+        - name: worlds
+          persistentVolumeClaim:
+            claimName: worlds
+      containers:
+        - name: genesis
+          image: society:dev
+          imagePullPolicy: Never
+          command: [python, world.py, genesis, genesis]
+          volumeMounts: [{name: worlds, mountPath: /data}]

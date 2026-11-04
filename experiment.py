@@ -15,7 +15,7 @@ import kubernetes
 import config
 from db import DB, world_db_path
 from metrics import segregation
-from world import create_world, mock_brain, parse_bias, run_tick
+from world import create_world, load_k8s_config, mock_brain, parse_bias, run_tick
 
 MODELS = list(config.PROVIDERS)
 
@@ -62,7 +62,7 @@ def main():
     parser.add_argument("--control-model", default="groq", choices=MODELS)
     args = parser.parse_args()
 
-    kubernetes.config.load_kube_config()
+    load_k8s_config()
     core, api = kubernetes.client.CoreV1Api(), kubernetes.client.CustomObjectsApi()
     bias = parse_bias(args.bias)
     runs = {world: [run(core, api, args.name, world, seed, args.days, bias, args.control_model)

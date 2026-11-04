@@ -1,0 +1,44 @@
+# The always-on world: the operator and one world in a single pod, sharing the SQLite volume.
+# Order: base.yaml, the society-keys secret, genesis-job.yaml (once), then this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: society
+  namespace: society-system
+spec:
+  replicas: 1
+  # Recreate: two pods must never write the same SQLite files.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: society}
+  template:
+    metadata:
+      labels: {app: society}
+    spec:
+      serviceAccountName: society
+      volumes:
+        - name: worlds
+          persistentVolumeClaim:
+            claimName: worlds
+      containers:
+        - name: operator
+          image: society:dev
+          imagePullPolicy: Never
+          # --standalone: one operator only, no peering objects needed.
+          command: [kopf, run, --standalone, --all-namespaces, promise_operator.py]
+          volumeMounts: [{name: worlds, mountPath: /data}]
+          resources:
+            requests: {memory: 64Mi, cpu: 20m}
+            limits: {memory: 192Mi}
+        - name: world
+          image: society:dev
+          imagePullPolicy: Never
+          command: [python, world.py, run, genesis]
+          # API keys: kubectl -n society-system create secret generic society-keys --from-env-file=.env
+          envFrom:
+            - secretRef: {name: society-keys}
+          volumeMounts: [{name: worlds, mountPath: /data}]
+          resources:
+            requests: {memory: 64Mi, cpu: 20m}
+            limits: {memory: 192Mi}

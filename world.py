@@ -270,6 +270,14 @@ def create_world(core, api, namespace, agents, seed, labels=None):
     DB(path).set("seed", seed)
 
 
+def load_k8s_config():
+    # Inside a pod k8s sets KUBERNETES_SERVICE_HOST; on a laptop the kubeconfig is used.
+    if "KUBERNETES_SERVICE_HOST" in os.environ:
+        kubernetes.config.load_incluster_config()
+    else:
+        kubernetes.config.load_kube_config()
+
+
 def parse_bias(pairs):
     return {model: float(p) for model, p in (pair.split("=") for pair in pairs)}
 
@@ -289,7 +297,7 @@ def main():
     sub.add_parser("run").add_argument("namespace")
     args = parser.parse_args()
 
-    kubernetes.config.load_kube_config()
+    load_k8s_config()
     api = kubernetes.client.CustomObjectsApi()
     if args.cmd == "genesis":
         founders = [{"name": n.lower(), "sex": s, "model": args.model or m, "group": args.model or m}

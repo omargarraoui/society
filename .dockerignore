@@ -1,0 +1,8 @@
+.git
+.venv
+.env
+worlds
+results
+tests
+*.log
+__pycache__

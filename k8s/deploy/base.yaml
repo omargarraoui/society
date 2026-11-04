@@ -1,0 +1,56 @@
+# Namespace, permissions and the SQLite volume. Apply first, after the CRDs in k8s/.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: society-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: society
+  namespace: society-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: society
+rules:
+  # Every world is a namespace full of these.
+  - apiGroups: [society.local]
+    resources: [agents, agents/status, promises, promises/status, assessments]
+    verbs: [get, list, watch, create, patch, update, delete]
+  # genesis creates the world's namespace; kopf --all-namespaces watches them.
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create]
+  # kopf reports handler results as k8s events and checks which CRDs exist.
+  - apiGroups: ["", events.k8s.io]
+    resources: [events]
+    verbs: [create]
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: society
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: society
+subjects:
+  - kind: ServiceAccount
+    name: society
+    namespace: society-system
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: worlds
+  namespace: society-system
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
