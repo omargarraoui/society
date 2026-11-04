@@ -97,6 +97,7 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
 - Test: 40, in `tests/`. Ruff pulito.
 - `llm.py`: il turno di un agente via API OpenAI-compatibile. Risposta in JSON con schema stretto (structured outputs di Groq). Il prompt contiene nomi, sesso, matrimoni ed eventi visti, mai `model` o `group` (c'è un test). Quote contate per giorno UTC in `worlds/quota.db`, condivise tra i mondi.
 - `world.py`: `--brain mock|llm`. Ogni azione, del mock o dell'LLM, passa da `invalid_reason()`: le regole dure le impone il codice. Un'azione rifiutata finisce nel log come `invalid`, con il motivo.
+- Prima prova con Groq vero (4 novembre 2026, mondo `groq1`, Adam ed Eve entrambi su Groq, 28 tick): promesse con parole proprie, dialoghi, cibo condiviso, proposta di matrimonio di Eve accettata da Adam, 2 Assessment. 1 azione rifiutata dal validatore (Adam che valuta se stesso). Circa 790 token a turno.
 - Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), il passo dei tick adattivo alle quote, `rules.py` completo (parentela), l'agente-Dio, l'Operator dentro il cluster, il bot Telegram e il README.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 

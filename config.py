@@ -52,7 +52,8 @@ PROVIDERS = {
         "model": "openai/gpt-oss-120b",
         "key_env": "GROQ_API_KEY",
         # Piano gratuito, visto su console.groq.com il 4/11/2026: 30 RPM, 8K TPM, 1000 RPD, 200K TPD.
-        # Il limite che morde e' quello dei token: circa 1000 token a turno = circa 200 turni al giorno.
+        # Il limite che morde e' quello dei token: misurati circa 790 token a turno (56 turni, 4/11/2026),
+        # in crescita con gli eventi nel prompt (max 15) = circa 250 turni al giorno, circa 10 al minuto.
         "daily_requests": 1000,
         "daily_tokens": 200_000,
         "extra": {"reasoning_effort": "low"},

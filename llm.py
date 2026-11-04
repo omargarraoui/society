@@ -106,6 +106,13 @@ def call(provider, messages, quota):
     return json.loads(response.choices[0].message.content)
 
 
+def parse(answer):
+    data = {k: v for k, v in answer.items() if k != "action" and v is not None}
+    if "target" in data:
+        # The prompt shows capitalized names; agent ids are lowercase.
+        data["target"] = data["target"].strip().lower()
+    return answer["action"], data
+
+
 def decide(me, others, proposer, events, tick, quota):
-    answer = call(me["model"], prompt(me, others, proposer, events, tick), quota)
-    return answer["action"], {k: v for k, v in answer.items() if k != "action" and v is not None}
+    return parse(call(me["model"], prompt(me, others, proposer, events, tick), quota))

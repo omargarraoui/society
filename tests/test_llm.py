@@ -4,7 +4,7 @@ import pytest
 
 import config
 from db import DB
-from llm import QuotaExhausted, call, clock, describe, prompt
+from llm import QuotaExhausted, call, clock, describe, parse, prompt
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
 ADAM = {"name": "adam", "sex": "M", "model": "groq", "group": "groq", "spouse": "eve", "promise": PROMISE}
@@ -55,3 +55,9 @@ def test_usage_counts_requests_and_tokens(tmp_path):
     quota.add_usage("groq", 700)
     quota.add_usage("groq", 300)
     assert quota.usage("groq") == (2, 1000)
+
+
+def test_parse_maps_the_displayed_name_back_to_the_id():
+    # Seen live on Groq: the model answers with the capitalized name it was shown.
+    answer = {"action": "speak", "target": "Eve", "message": "Good morning", "refrains": None, "kept": None}
+    assert parse(answer) == ("speak", {"target": "eve", "message": "Good morning"})
