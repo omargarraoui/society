@@ -160,8 +160,8 @@ def run_tick(db, api, namespace, brain):
         proposer = pending_proposer(db, me, agents)
         try:
             kind, data = brain(rng, me, others, proposer, tick)
-        except llm.QuotaExhausted as e:
-            db.log("skip", name, reason=f"quota exhausted: {e}")
+        except llm.Unavailable as e:
+            db.log("skip", name, reason=str(e))
             continue
         reason = invalid_reason(kind, data, me, agents, proposer)
         if reason is not None:

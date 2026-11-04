@@ -61,17 +61,22 @@ PROVIDERS = {
         "daily_requests": 1000,
         "daily_tokens": 200_000,
         "turn_tokens": 790,
+        "quota_tz": "UTC",
         "extra": {"reasoning_effort": "low"},
     },
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "model": "gemini-2.5-flash",
+        # Stabile (4/11/2026). Non gemini-2.5-flash: dal 1/12/2026 Google lo instrada su un altro modello,
+        # e il modello nascosto dell'agente cambierebbe a meta' esperimento.
+        "model": "gemini-3.6-flash",
         "key_env": "GEMINI_API_KEY",
-        # Limiti NON verificati.
-        "daily_requests": 400,
+        # Google non pubblica piu' i limiti gratuiti. 20 al giorno letto nell'errore 429 dell'API
+        # (GenerateRequestsPerDayPerProjectPerModel-FreeTier, 4/11/2026). Azzeramento a mezzanotte del Pacifico.
+        "daily_requests": 20,
         "daily_tokens": None,
         "turn_tokens": None,
-        "extra": {},
+        "quota_tz": "America/Los_Angeles",
+        "extra": {"reasoning_effort": "low"},
     },
     "cloudflare": {
         # imposta CLOUDFLARE_ACCOUNT_ID oltre a CLOUDFLARE_API_TOKEN
@@ -82,6 +87,7 @@ PROVIDERS = {
         "daily_requests": 200,
         "daily_tokens": None,
         "turn_tokens": None,
+        "quota_tz": "UTC",  # NON verificato
         "extra": {},
     },
 }

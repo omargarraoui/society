@@ -1,9 +1,11 @@
 import json
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
 import config
-from db import DB
+from db import DB, quota_day
 from llm import QuotaExhausted, call, clock, describe, parse, prompt
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
@@ -61,3 +63,10 @@ def test_parse_maps_the_displayed_name_back_to_the_id():
     # Seen live on Groq: the model answers with the capitalized name it was shown.
     answer = {"action": "speak", "target": "Eve", "message": "Good morning", "refrains": None, "kept": None}
     assert parse(answer) == ("speak", {"target": "eve", "message": "Good morning"})
+
+
+def test_gemini_quota_day_follows_pacific_time():
+    now_pacific = datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d")
+    now_utc = datetime.now(UTC).strftime("%Y-%m-%d")
+    assert quota_day("gemini") == now_pacific
+    assert quota_day("groq") == now_utc

@@ -2,7 +2,7 @@
 
 No fallback between providers: the provider is the agent's hidden model, so letting
 another one answer would contaminate the segregation experiment. An exhausted
-provider raises QuotaExhausted and the agent sleeps through its turn.
+or failing provider raises Unavailable and the agent sleeps through its turn.
 """
 import json
 import os
@@ -41,7 +41,15 @@ VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "pra
          "accept_marriage": "accepted marriage with", "assess": "judged the promise of"}
 
 
-class QuotaExhausted(Exception):
+class Unavailable(Exception):
+    """The agent's provider cannot answer this turn. Errors in our own request are not this."""
+
+
+class QuotaExhausted(Unavailable):
+    pass
+
+
+class ProviderDown(Unavailable):
     pass
 
 
@@ -91,7 +99,7 @@ def call(provider, messages, quota):
     p = config.PROVIDERS[provider]
     requests, tokens = quota.usage(provider)
     if requests >= p["daily_requests"] or (p["daily_tokens"] is not None and tokens >= p["daily_tokens"]):
-        raise QuotaExhausted(provider)
+        raise QuotaExhausted(f"{provider}: daily limit reached")
     # max_retries: the SDK waits for retry-after on 429; the 8K tokens/minute limit needs a few waits.
     client = openai.OpenAI(base_url=p["base_url"].format(**os.environ), api_key=os.environ[p["key_env"]],
                            max_retries=5)
@@ -101,7 +109,10 @@ def call(provider, messages, quota):
             model=p["model"], messages=messages, response_format={"type": "json_schema", "json_schema": schema},
             **p["extra"])
     except openai.RateLimitError as e:
-        raise QuotaExhausted(provider) from e
+        raise QuotaExhausted(f"{provider}: quota exhausted") from e
+    # Seen live on Gemini: 503 after the SDK's retries. APIConnectionError includes timeouts.
+    except (openai.InternalServerError, openai.APIConnectionError) as e:
+        raise ProviderDown(f"{provider}: {e}") from e
     quota.add_usage(provider, response.usage.total_tokens)
     return json.loads(response.choices[0].message.content)
 

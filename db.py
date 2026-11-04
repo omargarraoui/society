@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import sqlite3
+import zoneinfo
 
 import config
 
@@ -13,8 +14,10 @@ create table if not exists kv(key text primary key, value text);
 """
 
 
-def utc_day():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+def quota_day(provider):
+    """Providers reset daily quotas at midnight in their own time zone."""
+    tz = zoneinfo.ZoneInfo(config.PROVIDERS[provider]["quota_tz"])
+    return datetime.datetime.now(tz).strftime("%Y-%m-%d")
 
 
 def world_db_path(namespace):
@@ -57,13 +60,13 @@ class DB:
         return self.one("select count(*) as n from events where agent=? and kind=? and tick>=?",
                         (promiser, refrains, since_tick))["n"]
 
-    # --- quote LLM (per giorno UTC) ---
+    # --- quote LLM (per giorno del provider) ---
     def usage(self, provider):
         """(requests, tokens) used today."""
-        r = self.one("select n, tokens from usage where day=? and provider=?", (utc_day(), provider))
+        r = self.one("select n, tokens from usage where day=? and provider=?", (quota_day(provider), provider))
         return (r["n"], r["tokens"]) if r else (0, 0)
 
     def add_usage(self, provider, tokens):
         self.x("insert into usage(day,provider,n,tokens) values(?,?,1,?) "
                "on conflict(day,provider) do update set n=n+1, tokens=tokens+excluded.tokens",
-               (utc_day(), provider, tokens))
+               (quota_day(provider), provider, tokens))
