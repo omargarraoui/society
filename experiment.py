@@ -15,9 +15,10 @@ import kubernetes
 import config
 from db import DB, world_db_path
 from metrics import segregation
-from world import create_world, load_k8s_config, mock_brain, parse_bias, run_tick
+from state import load_k8s_config
+from world import create_world, mock_brain, parse_bias, run_tick
 
-MODELS = list(config.PROVIDERS)
+MODELS = config.AGENT_MODELS
 
 
 def population(world, seed, control_model):

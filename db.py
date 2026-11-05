@@ -11,6 +11,9 @@ create table if not exists events(id integer primary key, tick integer, kind tex
 create table if not exists usage(
   day text, provider text, n integer default 0, tokens integer default 0, primary key(day, provider));
 create table if not exists kv(key text primary key, value text);
+create table if not exists decisions(
+  id integer primary key, created real, due real, tick integer, kind text, target text, days integer,
+  reason text, status text);
 """
 
 

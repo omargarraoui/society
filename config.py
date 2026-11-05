@@ -47,7 +47,9 @@ MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 
 # Elenco fisso: il codice rifiuta qualsiasi altra azione.
 ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
-           "propose_marriage", "accept_marriage", "assess", "observe"]
+           "propose_marriage", "accept_marriage", "assess", "observe", "petition"]
+# Cio' che fa l'agente-Dio. Gli agenti lo vedono negli eventi, ma non possono farlo.
+GOD_EVENTS = ["revelation", "appoint", "sentence", "pardon", "penalty"]
 # Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.
 OBSERVE_LIMIT = 8
 MAX_MESSAGE_CHARS = 300
@@ -56,7 +58,18 @@ REFRAINS = ["steal", "work_on_day_of_rest"]
 
 # --- Fondatori: (nome, sesso, modello nascosto) ---
 FOUNDERS = [("Adam", "M", "groq"), ("Eve", "F", "gemini")]
-GOD_MODEL = "cloudflare"  # il modello dell'agente-Dio e' separato da quello dei gruppi
+# I modelli nascosti degli agenti (= enum di spec.model in k8s/agent-crd.yaml).
+AGENT_MODELS = ["groq", "gemini", "cloudflare"]
+GOD_MODEL = "gemma"  # il modello dell'agente-Dio e' separato da quello dei gruppi
+CONSTITUTION_PATH = "constitution.md"  # scritta dall'utente: l'agente-Dio la legge, non la puo' cambiare
+
+# --- Agente-Dio: limiti duri imposti dal codice ---
+PENALTIES = ["warning", "mark", "exile", "death"]  # cibo e figli arrivano con cibo e nascite
+VETO_PENALTIES = {"exile", "death"}  # aspettano 24 ore reali: l'utente puo' annullarle con /annulla
+VETO_SECONDS = 24 * 60 * 60
+MAX_EXILE_DAYS = 7
+# Piu' morti di cosi' in un giorno reale = decisione anomala: il mondo va in pausa e arriva un allarme.
+MAX_DEATHS_PER_DAY = 1
 
 NAMES_M = ["Seth", "Enos", "Cain", "Abel", "Noah", "Enoch", "Jared", "Lamech", "Eber", "Terah"]
 NAMES_F = ["Adah", "Zillah", "Naamah", "Milcah", "Sarai", "Hagar", "Leah", "Rachel", "Dinah", "Tamar"]
@@ -89,6 +102,18 @@ PROVIDERS = {
         "turn_tokens": None,
         "quota_tz": "America/Los_Angeles",
         "extra": {"reasoning_effort": "low"},
+    },
+    "gemma": {
+        # Solo per l'agente-Dio. Piano gratuito letto in AI Studio il 5/11/2026: 30 RPM, 16K TPM, 14400 RPD.
+        # Provati il 5/11/2026: gemma-4-26b-a4b-it 4 risposte su 5 in circa 1 s; gemma-4-31b-it 2 su 6, fino a 67 s.
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemma-4-26b-a4b-it",
+        "key_env": "GEMINI_API_KEY",
+        "daily_requests": 14400,
+        "daily_tokens": None,
+        "turn_tokens": None,
+        "quota_tz": "America/Los_Angeles",
+        "extra": {},
     },
     "cloudflare": {
         # imposta CLOUDFLARE_ACCOUNT_ID oltre a CLOUDFLARE_API_TOKEN

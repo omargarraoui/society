@@ -9,8 +9,11 @@ from db import DB, quota_day
 from llm import QuotaExhausted, call, clock, describe, parse, prompt
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
-ADAM = {"name": "adam", "sex": "M", "model": "groq", "group": "groq", "spouse": "eve", "promises": [PROMISE]}
-EVE = {"name": "eve", "sex": "F", "model": "gemini", "group": "gemini", "spouse": "adam", "promises": []}
+NOTHING_FROM_GOD = {"alive": True, "role": None, "exiled_until": -1, "marks": [], "warnings": []}
+ADAM = {"name": "adam", "sex": "M", "model": "groq", "group": "groq", "spouse": "eve", "promises": [PROMISE],
+        **NOTHING_FROM_GOD}
+EVE = {"name": "eve", "sex": "F", "model": "gemini", "group": "gemini", "spouse": "adam", "promises": [],
+       **NOTHING_FROM_GOD}
 
 
 def event(tick, kind, agent, **data):

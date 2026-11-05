@@ -5,6 +5,7 @@
   python world.py run NAMESPACE   # LLM brain, forever, paced by the free quotas
 """
 import argparse
+import functools
 import os
 import random
 import time
@@ -13,17 +14,17 @@ from collections import Counter
 import kubernetes
 
 import config
+import god
 import llm
 from db import DB, quota_db_path, world_db_path
+from state import GROUP, crd, load_agents, load_k8s_config, patch_status
 
-GROUP = "society.local"
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
 MOCK_WEIGHTS = {"work": 35, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10, "observe": 5}
 TARGETED = {"speak", "give", "steal", "propose_marriage", "accept_marriage", "assess", "observe"}
 
 
-def crd(plural, namespace):
-    return {"group": GROUP, "version": "v1", "namespace": namespace, "plural": plural}
+
 
 
 def awake(names, tick, rng):
@@ -93,10 +94,11 @@ def mock_brain(bias, db):
 def visible_events(db, name, tick):
     """What the agent did or had done to it since the start of yesterday."""
     since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
-    marks = ",".join("?" * len(config.ACTIONS))
+    kinds = [*config.ACTIONS, *config.GOD_EVENTS]
+    marks = ",".join("?" * len(kinds))
     rows = db.q(f"select tick, kind, agent, data from events where kind in ({marks}) and tick>=? "
-                "and (agent=? or json_extract(data, '$.target')=?) order by id desc limit 15",
-                (*config.ACTIONS, since, name, name))
+                "and (agent=? or json_extract(data, '$.target') in (?, 'all')) order by id desc limit 15",
+                (*kinds, since, name, name))
     return rows[::-1]
 
 
@@ -117,20 +119,29 @@ def llm_brain(db, quota):
     return decide
 
 
-def invalid_reason(kind, data, me, agents, proposer):
-    """None when the action is allowed. The code enforces the hard rules, not the LLM."""
+def invalid_reason(kind, data, me, agents, proposer, tick):
+    """None when the action is allowed. The code enforces the hard rules, not the LLM.
+
+    agents holds only the living, so the dead can be neither actors nor targets.
+    """
     target = agents.get(data.get("target"))
     if kind not in config.ACTIONS:
         return "unknown action"
     if kind in TARGETED and (target is None or target is me):
         return "target is not another person"
+    if me["exiled_until"] > tick and kind in ("speak", "give", "propose_marriage", "accept_marriage", "petition"):
+        return "in exile"
+    if kind in ("speak", "give") and target["exiled_until"] > tick:
+        return "target is in exile"
+    if kind == "petition" and me["role"] != "representative":
+        return "only the representative petitions"
     if len(data.get("message", "")) > config.MAX_MESSAGE_CHARS:
         return "message too long"
     if kind == "promise" and not data.get("message"):
         return "a promise needs words"
     if kind == "promise" and "refrains" in data and data["refrains"] not in config.REFRAINS:
         return "unknown refrains"
-    if kind in ("speak", "pray") and not data.get("message"):
+    if kind in ("speak", "pray", "petition") and not data.get("message"):
         return "nothing said"
     if kind == "propose_marriage" and (me["spouse"] or target["spouse"] or me["sex"] == target["sex"]):
         return "marriage is between an unmarried man and an unmarried woman"
@@ -148,32 +159,22 @@ def pending_proposer(db, me, agents):
         return None
     row = db.one("select agent from events where kind='propose_marriage' and json_extract(data, '$.target')=? "
                  "order by id desc limit 1", (me["name"],))
-    if row is None or agents[row["agent"]]["spouse"]:
+    # agents holds only the living: a proposal from someone who has died is gone.
+    if row is None or row["agent"] not in agents or agents[row["agent"]]["spouse"]:
         return None
     return agents[row["agent"]]
 
 
-def load_agents(api, namespace):
-    promises = {}
-    for p in sorted(api.list_namespaced_custom_object(**crd("promises", namespace))["items"],
-                    key=lambda p: p["spec"]["tick"]):
-        promises.setdefault(p["spec"]["promiser"], []).append(p)
-    agents = {}
-    for a in api.list_namespaced_custom_object(**crd("agents", namespace))["items"]:
-        name = a["metadata"]["name"]
-        agents[name] = {"name": name, **a["spec"], "spouse": a.get("status", {}).get("spouse"),
-                        "promises": promises.get(name, [])}
-    return agents
+
 
 
 def marry(api, namespace, a, b):
     for x, y in ((a, b), (b, a)):
-        api.patch_namespaced_custom_object_status(**crd("agents", namespace), name=x["name"],
-                                                  body={"status": {"spouse": y["name"]}})
-        x["spouse"] = y["name"]
+        patch_status(api, namespace, x, spouse=y["name"])
 
 
-def run_tick(db, api, namespace, brain):
+def run_tick(db, api, namespace, brain, god_turn=None):
+    """god_turn (llm brain only) runs at dawn, before the agents act."""
     agents = load_agents(api, namespace)
     if not agents:
         raise SystemExit(f"no agents in namespace {namespace}: create the world first")
@@ -182,16 +183,20 @@ def run_tick(db, api, namespace, brain):
     db.set("tick", tick)
     # Seeded by world seed and tick so a run can be replayed.
     rng = random.Random(f"{db.get('seed', 0)}:{tick}")
-    for name in awake(sorted(agents), tick, rng):
-        me = agents[name]
-        others = [a for a in agents.values() if a["name"] != name]
-        proposer = pending_proposer(db, me, agents)
+    god.apply_due(db, api, namespace, agents, tick, time.time())
+    if god_turn is not None and tick % config.TICKS_PER_DAY == config.NIGHT_END_HOUR * config.TICKS_PER_DAY // 24:
+        god_turn(db, api, namespace, agents, tick)
+    living = {n: a for n, a in agents.items() if a["alive"]}
+    for name in awake(sorted(living), tick, rng):
+        me = living[name]
+        others = [a for a in living.values() if a["name"] != name]
+        proposer = pending_proposer(db, me, living)
         try:
             kind, data = brain(rng, me, others, proposer, tick)
         except llm.Unavailable as e:
             db.log("skip", name, reason=str(e))
             continue
-        reason = invalid_reason(kind, data, me, agents, proposer)
+        reason = invalid_reason(kind, data, me, living, proposer, tick)
         if reason is not None:
             db.log("invalid", name, action=kind, reason=reason, **data)
             continue
@@ -203,7 +208,7 @@ def run_tick(db, api, namespace, brain):
                          **({"refrains": data["refrains"]} if "refrains" in data else {})},
             }))
         elif kind == "accept_marriage":
-            marry(api, namespace, me, agents[data["target"]])
+            marry(api, namespace, me, living[data["target"]])
         elif kind == "observe":
             data["saw"] = observed(db, data["target"], tick)
         elif kind == "assess":
@@ -244,14 +249,14 @@ def world_days_per_day(model_counts, tokens_per_turn):
     return speed
 
 
-def run_forever(db, api, namespace, brain, quota):
+def run_forever(db, api, namespace, brain, quota, god_turn):
     while True:
         # Set by the Telegram bot (/pausa, /riprendi), which shares this database.
         if db.get("paused", False):
             time.sleep(30)
             continue
         started = time.monotonic()
-        agents = run_tick(db, api, namespace, brain)
+        agents = run_tick(db, api, namespace, brain, god_turn)
         counts = Counter(a["model"] for a in agents.values())
         speed = world_days_per_day(counts, {m: turn_tokens(quota, m) for m in counts})
         wait = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
@@ -274,12 +279,7 @@ def create_world(core, api, namespace, agents, seed, labels=None):
     DB(path).set("seed", seed)
 
 
-def load_k8s_config():
-    # Inside a pod k8s sets KUBERNETES_SERVICE_HOST; on a laptop the kubeconfig is used.
-    if "KUBERNETES_SERVICE_HOST" in os.environ:
-        kubernetes.config.load_incluster_config()
-    else:
-        kubernetes.config.load_kube_config()
+
 
 
 def parse_bias(pairs):
@@ -291,7 +291,7 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
     genesis = sub.add_parser("genesis")
     genesis.add_argument("namespace")
-    genesis.add_argument("--model", choices=list(config.PROVIDERS),
+    genesis.add_argument("--model", choices=config.AGENT_MODELS,
                          help="give both founders this model (a one-model control world)")
     tick = sub.add_parser("tick")
     tick.add_argument("namespace")
@@ -310,20 +310,22 @@ def main():
         return
     db = DB(world_db_path(args.namespace))
     if args.cmd == "tick" and args.brain == "mock":
-        brain = mock_brain(parse_bias(args.bias), db)
+        brain, god_turn = mock_brain(parse_bias(args.bias), db), None
     else:
-        models = {a["model"] for a in load_agents(api, args.namespace).values()}
-        keys = [config.PROVIDERS[m]["key_env"] for m in sorted(models)]
+        models = {a["model"] for a in load_agents(api, args.namespace).values()} | {config.GOD_MODEL}
+        keys = {config.PROVIDERS[m]["key_env"] for m in models}
         missing = [k for k in keys if k not in os.environ]
         if missing:
             raise SystemExit(f"missing API keys: {', '.join(missing)}")
         quota = DB(quota_db_path())
         brain = llm_brain(db, quota)
+        with open(config.CONSTITUTION_PATH) as f:
+            god_turn = functools.partial(god.turn, quota=quota, constitution=f.read())
     if args.cmd == "run":
-        run_forever(db, api, args.namespace, brain, quota)
+        run_forever(db, api, args.namespace, brain, quota, god_turn)
     else:
         for _ in range(args.ticks):
-            run_tick(db, api, args.namespace, brain)
+            run_tick(db, api, args.namespace, brain, god_turn)
 
 
 if __name__ == "__main__":

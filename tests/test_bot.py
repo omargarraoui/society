@@ -31,7 +31,8 @@ def test_pause_and_resume_set_the_flag_the_world_reads(tmp_path):
 
 
 def test_unknown_text_gets_the_help(tmp_path):
-    assert handle("ciao", "genesis", world_db(tmp_path, []), None, AGENTS) == "Comandi: /stato, /pausa, /riprendi"
+    assert handle("ciao", "genesis", world_db(tmp_path, []), None, AGENTS) == (
+        "Comandi: /stato, /pausa, /riprendi, /annulla <numero della sentenza>")
 
 
 def test_status_shows_agents_quotas_and_pause(tmp_path):
@@ -77,3 +78,35 @@ def test_digest_once_a_day_after_the_hour(tmp_path):
     db.set("digest_day", "2026-11-05")
     assert not digest_due(db, evening)
     assert digest_due(db, datetime.datetime(2026, 11, 6, 21, 0))
+
+
+def pending_death(db):
+    return db.x("insert into decisions(created, due, tick, kind, target, days, reason, status) "
+                "values(0, 86400, 28, 'death', 'adam', NULL, 'He killed.', 'pending')")
+
+
+def test_annulla_vetoes_a_pending_sentence_and_the_world_hears_the_pardon(tmp_path):
+    db = world_db(tmp_path, [])
+    decision = pending_death(db)
+    assert handle(f"/annulla {decision}", "genesis", db, None, AGENTS) == (
+        f"Sentenza #{decision} annullata: Adam non subira' death.")
+    assert db.one("select status from decisions")["status"] == "vetoed"
+    assert rows(db)[-1]["kind"] == "pardon"
+    assert handle(f"/annulla {decision}", "genesis", db, None, AGENTS) == f"Nessuna sentenza #{decision} in attesa."
+
+
+def test_annulla_needs_a_number(tmp_path):
+    assert handle("/annulla", "genesis", world_db(tmp_path, []), None, AGENTS).startswith("Uso: /annulla")
+
+
+def test_alerts_for_sentences_and_anomalies(tmp_path):
+    db = world_db(tmp_path, [(28, "sentence", "god", {"target": "adam", "penalty": "exile", "days": 2,
+                                                      "reason": "He stole.", "decision": 4}),
+                             (28, "sentence", "god", {"target": "eve", "penalty": "warning", "reason": "She lied."}),
+                             (28, "anomaly", "god", {"reason": "too many deaths in a day: world paused",
+                                                     "sentence": {"target": "eve", "penalty": "death"}})])
+    texts, _ = alert_texts(rows(db))
+    assert texts[0] == ("Sentenza #4: Adam, exile per 2 giorni. Motivo: He stole.\n"
+                        "Diventa effettiva tra 24 ore. Per annullarla: /annulla 4")
+    assert texts[1] == "Dio a Eve: warning. Motivo: She lied."
+    assert texts[2].startswith("ALLARME: too many deaths in a day: world paused.")

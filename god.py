@@ -1,0 +1,147 @@
+"""The agent-God: once a world day, at dawn, it reads the record and decides within the constitution.
+
+Like the agents' actions, its answer passes through hard rules in code: only the penalties in
+config.PENALTIES, exile and death delayed by VETO_SECONDS (the user can pardon), and the world
+paused when a decision looks anomalous.
+"""
+import time
+
+import config
+import llm
+from state import patch_status
+
+SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["revelations", "representative", "penalties"],
+    "properties": {
+        "revelations": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["to", "message"],
+            "properties": {"to": {"type": "string"}, "message": {"type": "string"}}}},
+        "representative": {"type": ["string", "null"]},
+        "penalties": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["target", "penalty", "days", "reason"],
+            "properties": {"target": {"type": "string"}, "penalty": {"type": "string", "enum": config.PENALTIES},
+                           "days": {"type": ["integer", "null"]}, "reason": {"type": "string"}}}},
+    },
+}
+
+INSTRUCTIONS = """Reply with JSON:
+- revelations: what you say, each to one person (their name) or to "all". An empty list is silence.
+- representative: the name of the person to appoint, or null to keep the current one.
+- penalties: each with target, penalty, days (exile only, otherwise null) and reason."""
+
+
+def describe_person(agent, tick):
+    parts = [f"{agent['name'].capitalize()}, {'man' if agent['sex'] == 'M' else 'woman'}"]
+    if agent["spouse"]:
+        parts.append(f"married to {agent['spouse'].capitalize()}")
+    if agent["role"]:
+        parts.append(f"the {agent['role']}")
+    if agent["exiled_until"] > tick:
+        parts.append(f"in exile until {llm.clock(agent['exiled_until'])}")
+    parts += [f"warned: {w}" for w in agent["warnings"]] + [f"marked: {m}" for m in agent["marks"]]
+    parts += [f'promised "{p["spec"]["body"]}"' + (" (broken by the record)" if p.get("status", {}).get("state")
+                                                   == "broken" else "") for p in agent["promises"]]
+    return "- " + "; ".join(parts)
+
+
+def prompt(constitution, agents, tick, events, decisions):
+    commandments = "\n".join(f"{i}. {c}" for i, c in enumerate(config.COMMANDMENTS, 1))
+    system = f"{constitution}\n\nThe commandments you revealed:\n{commandments}\n\n{INSTRUCTIONS}"
+    people = "\n".join(describe_person(a, tick) for a in agents.values() if a["alive"])
+    past = "\n".join(f"- {d['kind']} for {d['target'].capitalize()} ({d['status']}): {d['reason']}"
+                     for d in decisions) or "none"
+    record = "\n".join(llm.describe(e, "") for e in events) or "nothing"
+    user = (f"It is {llm.clock(tick)}.\n\nThe people:\n{people}\n\nSince yesterday:\n{record}"
+            f"\n\nYour recent decisions:\n{past}")
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def record(db, tick):
+    """Yesterday's prayers, petitions and wrongs, and God's own recent decisions."""
+    events = db.q("select tick, kind, agent, data from events where tick>=? and (kind in ('pray', 'petition', 'steal') "
+                  "or (kind='assess' and json_extract(data, '$.kept')=0)) order by id",
+                  (tick - config.TICKS_PER_DAY,))
+    decisions = db.q("select kind, target, reason, status from decisions order by id desc limit 10")[::-1]
+    return events, decisions
+
+
+def deaths_today(db, now):
+    return db.one("select count(*) as n from decisions where kind='death' and status!='vetoed' and created>?",
+                  (now - 24 * 60 * 60,))["n"]
+
+
+def apply(db, api, namespace, agents, tick, answer, now):
+    living = {n: a for n, a in agents.items() if a["alive"]}
+
+    for r in answer["revelations"]:
+        to = r["to"].strip().lower()
+        if (to != "all" and to not in living) or not r["message"] or len(r["message"]) > config.MAX_MESSAGE_CHARS:
+            db.log("invalid", "god", action="revelation", reason="unknown person or bad message", **r)
+            continue
+        db.log("revelation", "god", target=to, message=r["message"])
+
+    if answer["representative"] is not None:
+        chosen = answer["representative"].strip().lower()
+        if chosen not in living:
+            db.log("invalid", "god", action="appoint", reason="unknown person", target=chosen)
+        elif living[chosen]["role"] != "representative":
+            for a in living.values():
+                if a["role"] == "representative":
+                    patch_status(api, namespace, a, role=None)
+            patch_status(api, namespace, living[chosen], role="representative")
+            db.log("appoint", "god", target=chosen)
+
+    for p in answer["penalties"]:
+        target, penalty = p["target"].strip().lower(), p["penalty"]
+        if target not in living:
+            db.log("invalid", "god", action="sentence", reason="unknown person", sentence=p)
+            continue
+        if penalty == "exile" and not (p["days"] and 1 <= p["days"] <= config.MAX_EXILE_DAYS):
+            db.log("invalid", "god", action="sentence", sentence=p,
+                   reason=f"exile needs 1-{config.MAX_EXILE_DAYS} days")
+            continue
+        if penalty == "death" and deaths_today(db, now) >= config.MAX_DEATHS_PER_DAY:
+            db.set("paused", True)
+            db.log("anomaly", "god", reason="too many deaths in a day: world paused", sentence=p)
+            continue
+        days = p["days"] if penalty == "exile" else None
+        if penalty in config.VETO_PENALTIES:
+            decision = db.x("insert into decisions(created, due, tick, kind, target, days, reason, status) "
+                            "values(?, ?, ?, ?, ?, ?, ?, 'pending')",
+                            (now, now + config.VETO_SECONDS, tick, penalty, target, days, p["reason"]))
+            db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"], decision=decision,
+                   **({"days": days} if days else {}))
+            continue
+        field = {"warning": "warnings", "mark": "marks"}[penalty]
+        patch_status(api, namespace, living[target], **{field: [*living[target][field], p["reason"]]})
+        db.x("insert into decisions(created, due, tick, kind, target, days, reason, status) "
+             "values(?, ?, ?, ?, ?, NULL, ?, 'applied')", (now, now, tick, penalty, target, p["reason"]))
+        db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"])
+
+
+def apply_due(db, api, namespace, agents, tick, now):
+    """Carries out exile and death once the veto window has passed without a pardon."""
+    for d in db.q("select id, kind, target, days from decisions where status='pending' and due<=?", (now,)):
+        agent = agents.get(d["target"])
+        if agent is not None and agent["alive"]:
+            if d["kind"] == "exile":
+                patch_status(api, namespace, agent, exiledUntil=tick + d["days"] * config.TICKS_PER_DAY)
+            else:
+                patch_status(api, namespace, agent, alive=False)
+            db.log("penalty", "god", target=d["target"], penalty=d["kind"], decision=d["id"])
+            db.x("update decisions set status='applied' where id=?", (d["id"],))
+        else:
+            db.x("update decisions set status='moot' where id=?", (d["id"],))
+
+
+def turn(db, api, namespace, agents, tick, quota, constitution):
+    events, decisions = record(db, tick)
+    try:
+        answer = llm.call(config.GOD_MODEL, prompt(constitution, agents, tick, events, decisions), quota,
+                          schema=SCHEMA)
+    except llm.Unavailable as e:
+        db.log("skip", "god", reason=str(e))
+        return
+    apply(db, api, namespace, agents, tick, answer, time.time())

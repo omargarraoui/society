@@ -37,12 +37,15 @@ RULES = """Each turn you choose exactly one action:
 - accept_marriage: accept the proposal target made to you.
 - observe: watch target to learn what they did since yesterday (not their words or prayers).
   They will know you watched them.
+- petition: only the representative: carry the people's requests to God (message).
 - assess: judge whether target has kept one of their promises. Set promise to its [id] and kept to true or false.
 Unused fields must be null."""
 
 VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "prayed", "speak": "said to",
          "give": "gave food to", "steal": "stole food from", "propose_marriage": "proposed marriage to",
-         "accept_marriage": "accepted marriage with", "assess": "judged the promise of", "observe": "watched"}
+         "accept_marriage": "accepted marriage with", "assess": "judged the promise of", "observe": "watched",
+         "petition": "petitioned God", "revelation": "said to", "appoint": "appointed as representative",
+         "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on"}
 
 
 class Unavailable(Exception):
@@ -66,11 +69,15 @@ def clock(tick):
 
 def describe(event, me):
     def who(name):
-        return "you" if name == me else name.capitalize()
+        return {"god": "God", "all": "everyone"}.get(name) or ("you" if name == me else name.capitalize())
     data = json.loads(event["data"])
     line = f"{clock(event['tick'])}: {who(event['agent'])} {VERBS[event['kind']]}"
     if "target" in data:
         line += f" {who(data['target'])}"
+    if "penalty" in data:
+        line += f" to {data['penalty']}" + (f" for {data['days']} days" if data.get("days") else "")
+    if "reason" in data:
+        line += f" ({data['reason']})"
     if "message" in data:
         line += f': "{data["message"]}"'
     if "kept" in data:
@@ -94,18 +101,26 @@ def prompt(me, others, proposer, events, tick):
     people = "\n".join(
         f"- {o['name'].capitalize()}, {'man' if o['sex'] == 'M' else 'woman'}"
         + (f", married to {'you' if o['spouse'] == me['name'] else o['spouse'].capitalize()}" if o["spouse"] else "")
+        + (f", the {o['role']}" if o["role"] else "")
+        + (", in exile" if o["exiled_until"] > tick else "")
+        + "".join(f", warned by God: {w}" for w in o["warnings"]) + "".join(f", marked by God: {m}" for m in o["marks"])
         + "".join(f'\n  promised [{p["metadata"]["name"]}]: "{p["spec"]["body"]}"' for p in o["promises"])
         for o in others
     )
     mine = "\n".join(f'You promised: "{p["spec"]["body"]}"' for p in me["promises"]) or "You have made no promise."
     lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine]
+    if me["role"]:
+        lines.append(f"You are the {me['role']}: with petition you carry the people's requests to God.")
+    if me["exiled_until"] > tick:
+        lines.append(f"You are in exile until {clock(me['exiled_until'])}: you cannot speak, give or marry.")
+    lines += [f"God warned you: {w}" for w in me["warnings"]] + [f"God marked you: {m}" for m in me["marks"]]
     if proposer is not None:
         lines.append(f"{proposer['name'].capitalize()} has asked you to marry them.")
     lines.append("What you saw recently:\n" + ("\n".join(describe(e, me["name"]) for e in events) or "nothing"))
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(lines)}]
 
 
-def call(provider, messages, quota):
+def call(provider, messages, quota, schema=SCHEMA):
     p = config.PROVIDERS[provider]
     requests, tokens = quota.usage(provider)
     if requests >= p["daily_requests"] or (p["daily_tokens"] is not None and tokens >= p["daily_tokens"]):
@@ -113,11 +128,11 @@ def call(provider, messages, quota):
     # max_retries: the SDK waits for retry-after on 429; the 8K tokens/minute limit needs a few waits.
     client = openai.OpenAI(base_url=p["base_url"].format(**os.environ), api_key=os.environ[p["key_env"]],
                            max_retries=5)
-    schema = {"name": "action", "strict": True, "schema": SCHEMA}
+    response_schema = {"name": "answer", "strict": True, "schema": schema}
     try:
         response = client.chat.completions.create(
-            model=p["model"], messages=messages, response_format={"type": "json_schema", "json_schema": schema},
-            **p["extra"])
+            model=p["model"], messages=messages,
+            response_format={"type": "json_schema", "json_schema": response_schema}, **p["extra"])
     except openai.RateLimitError as e:
         raise QuotaExhausted(f"{provider}: quota exhausted") from e
     # Seen live on Gemini: 503 after the SDK's retries. APIConnectionError includes timeouts.

@@ -18,9 +18,9 @@ import kubernetes
 import config
 import llm
 from db import DB, quota_db_path, world_db_path
-from world import load_agents, load_k8s_config
+from state import load_agents, load_k8s_config
 
-HELP = "Comandi: /stato, /pausa, /riprendi"
+HELP = "Comandi: /stato, /pausa, /riprendi, /annulla <numero della sentenza>"
 SKIP_ALERT_SECONDS = 3600
 
 
@@ -59,7 +59,7 @@ def digest_text(world, db, since_id):
     lines = [f"Digest {world}, da {llm.clock(rows[0]['tick'])} a {llm.clock(rows[-1]['tick'])}",
              "Azioni: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common())]
     for r in rows:
-        if r["kind"] in ("promise", "accept_marriage", "assess"):
+        if r["kind"] in ("promise", "accept_marriage", "assess", "petition", *config.GOD_EVENTS):
             lines.append(f"- {llm.describe(r, '')}")
     return "\n".join(lines), rows[-1]["id"]
 
@@ -73,12 +73,39 @@ def alert_texts(rows):
             texts.append(f"Matrimonio: {r['agent'].capitalize()} e {data['target'].capitalize()}")
         elif r["kind"] == "steal":
             texts.append(f"Furto: {r['agent'].capitalize()} ha rubato a {data['target'].capitalize()}")
+        elif r["kind"] == "appoint":
+            texts.append(f"Dio ha nominato rappresentante {data['target'].capitalize()}")
+        elif r["kind"] == "sentence" and "decision" in data:
+            length = f" per {data['days']} giorni" if data.get("days") else ""
+            texts.append(f"Sentenza #{data['decision']}: {data['target'].capitalize()}, {data['penalty']}{length}. "
+                         f"Motivo: {data['reason']}\nDiventa effettiva tra 24 ore. Per annullarla: "
+                         f"/annulla {data['decision']}")
+        elif r["kind"] == "sentence":
+            texts.append(f"Dio a {data['target'].capitalize()}: {data['penalty']}. Motivo: {data['reason']}")
+        elif r["kind"] == "penalty":
+            texts.append(f"Eseguita la sentenza #{data['decision']}: {data['target'].capitalize()}, {data['penalty']}")
+        elif r["kind"] == "anomaly":
+            texts.append(f"ALLARME: {data['reason']}. Proposta: {data['sentence']}. /riprendi per ripartire.")
     skips = Counter(json.loads(r["data"])["reason"] for r in rows if r["kind"] == "skip")
     return texts, skips
 
 
+def pardon(db, decision):
+    row = db.one("select target, kind, status from decisions where id=?", (decision,))
+    if row is None or row["status"] != "pending":
+        return f"Nessuna sentenza #{decision} in attesa."
+    db.x("update decisions set status='vetoed' where id=?", (decision,))
+    db.log("pardon", "god", target=row["target"], penalty=row["kind"], decision=decision)
+    return f"Sentenza #{decision} annullata: {row['target'].capitalize()} non subira' {row['kind']}."
+
+
 def handle(text, world, db, quota, agents):
-    command = text.strip().split()[0].split("@")[0] if text.strip() else ""
+    words = text.strip().split()
+    command = words[0].split("@")[0] if words else ""
+    if command == "/annulla":
+        if len(words) != 2 or not words[1].lstrip("#").isdigit():
+            return "Uso: /annulla <numero della sentenza>, per esempio /annulla 3"
+        return pardon(db, int(words[1].lstrip("#")))
     if command == "/stato":
         return status_text(world, db, quota, agents)
     if command == "/pausa":
