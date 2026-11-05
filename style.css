@@ -93,6 +93,19 @@ h3 { font: 700 1.05rem/1.25 var(--display); margin: 0 0 .4rem; }
 .stats .sep { margin: 0 .55rem; color: var(--hair); }
 .stats .stat { white-space: nowrap; }
 
+/* Live wire: the server's events as they happen */
+.live-status { font: 600 .66rem/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+  vertical-align: .35em; margin-left: .5rem; }
+.live-status.on { color: var(--good); }
+.live-status.on::before { content: "● "; }
+.wire { list-style: none; margin: 0; padding: .4rem 0; max-height: 19rem; overflow-y: auto; font-size: .92rem;
+  border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.wire li { padding: .2rem 0; }
+.wire .quote { display: inline; margin-left: .35rem; }
+.wire time { font: 600 .7rem/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums;
+  display: inline-block; min-width: 5.6rem; }
+.wire .routine { color: var(--ink-3); }
+
 /* Model mark: a small colored square, identity only */
 .mark { display: inline-block; width: .55em; height: .55em; background: var(--model); margin-right: .3em;
   vertical-align: .08em; }
