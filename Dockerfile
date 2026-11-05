@@ -5,5 +5,5 @@ COPY pyproject.toml .
 RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" \
       > requirements.txt \
     && pip install --no-cache-dir -r requirements.txt
-COPY *.py ./
+COPY *.py constitution.md ./
 ENV SOCIETY_DB_DIR=/data PYTHONUNBUFFERED=1
