@@ -46,9 +46,11 @@ DIGEST_TZ = "Europe/Rome"
 # --- Limiti duri (non modificabili dagli agenti ne' dall'agente-Dio) ---
 MAX_AGENTS = 12
 START_FOOD = 5
-UPKEEP_PER_DAY = 1
-WORK_GAIN = 2
-WORK_TURNS_FOR_FOOD = 2   # turni di lavoro del giorno prima per ricevere WORK_GAIN all'alba (2 ore del mondo)
+# Raccolto comune (deciso il 5/11/2026: prima bastavano 2 ore di lavoro e il cibo si accumulava senza scarsita').
+# Ogni alba il mondo produce HARVEST_PER_PERSON per ogni persona viva, diviso tra chi ha lavorato il giorno prima
+# in proporzione alle ore; poi ognuno mangia UPKEEP_PER_DAY.
+HARVEST_PER_PERSON = 3
+UPKEEP_PER_DAY = 2
 STARVE_BELOW = -2         # sotto questa soglia di cibo l'agente muore
 MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 FOOD_FROM_EACH_PARENT = 1  # alla nascita: il figlio parte con 2
@@ -64,7 +66,7 @@ ROUTINE_EVENTS = ["work", "rest", "skip", "invalid"]
 # Eventi che vedono tutti, non solo chi li fa o li subisce (deciso il 5/11/2026: prima nessuno vedeva gli altri e
 # Adam ed Eve non si sono mai parlati). Di "speak" gli altri vedono chi parla con chi, non le parole.
 # Restano privati: preghiere, furti (li vede la vittima), osservazioni, giudizi, richieste di figli.
-PUBLIC_EVENTS = ["starve", "birth", "speak", "give", "accept_marriage", "petition", "promise"]
+PUBLIC_EVENTS = ["starve", "birth", "speak", "give", "accept_marriage", "petition", "promise", "harvest"]
 # Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.
 OBSERVE_LIMIT = 8
 MAX_MESSAGE_CHARS = 300

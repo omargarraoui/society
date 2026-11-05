@@ -68,7 +68,7 @@ def snapshot(world, db, agents, now, speed):
                   f"{24 * 60 // config.TICKS_PER_DAY} world minutes",
                   "night_start": config.NIGHT_START_HOUR, "night_end": f"{config.NIGHT_END_HOUR:02d}",
                   "start_food": config.START_FOOD, "upkeep": config.UPKEEP_PER_DAY,
-                  "work_turns": config.WORK_TURNS_FOR_FOOD, "work_gain": config.WORK_GAIN,
+                  "harvest_per_person": config.HARVEST_PER_PERSON,
                   "starve_at": config.STARVE_BELOW - 1, "birth_food": config.MIN_FOOD_FOR_BIRTH,
                   "childhood_days": config.CHILDHOOD_DAYS, "max_agents": config.MAX_AGENTS},
         "people": people,

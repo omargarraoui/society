@@ -57,8 +57,8 @@ def test_assets_get_a_version_that_changes_with_their_content():
 
 def test_the_page_rules_come_from_config(tmp_path):
     rules = world(tmp_path)["rules"]
-    assert (rules["turns_per_day"], rules["turn_length"], rules["work_turns"], rules["starve_at"]) == (
-        24, "world hour", 2, -3)
+    assert (rules["turns_per_day"], rules["turn_length"], rules["harvest_per_person"], rules["upkeep"],
+            rules["starve_at"]) == (24, "world hour", 3, 2, -3)
 
 
 def test_each_person_shows_what_they_did(tmp_path):

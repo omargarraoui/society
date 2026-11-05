@@ -2,7 +2,6 @@ import json
 
 from fakes import FakeK8s, at
 
-import config
 import food
 from db import DB
 from llm import describe, parse, prompt
@@ -26,14 +25,23 @@ def worked(db, name, turns, day_start=DAWN_DAY_1):
 
 def test_dawn_reckoning(tmp_path):
     db = DB(str(tmp_path / "w.db"))
-    agents = {"adam": person("adam"), "eve": person("eve", "F"), "abel": person("abel", food_=-2)}
-    worked(db, "adam", config.WORK_TURNS_FOR_FOOD)
-    worked(db, "eve", config.WORK_TURNS_FOR_FOOD - 1)
+    agents = {"adam": person("adam"), "eve": person("eve", "F"), "abel": person("abel", food_=-1)}
+    worked(db, "adam", 9)
+    worked(db, "eve", 17)
     food.feed(db, FakeK8s(), "w", agents, DAWN_DAY_2)
-    # adam: 5 - 1 + 2; eve: 5 - 1 (one turn short); abel: -2 - 1 = -3, below -2.
-    assert [agents[n]["food"] for n in ("adam", "eve", "abel")] == [6, 4, -3]
+    # Harvest 3 * 3 = 9, by hours 9/26 and 17/26: 3.12 and 5.88 -> 3 and 5, the spare unit to Eve -> 3 and 6.
+    # Then everyone eats 2: adam 5 + 3 - 2 = 6, eve 5 + 6 - 2 = 9, abel -1 + 0 - 2 = -3, below -2.
+    assert [agents[n]["food"] for n in ("adam", "eve", "abel")] == [6, 9, -3]
     assert agents["abel"]["alive"] is False
-    assert db.q("select kind, agent from events where kind='starve'")[0]["agent"] == "abel"
+    harvest = db.one("select data from events where kind='harvest'")["data"]
+    assert json.loads(harvest) == {"total": 9, "shares": {"adam": 3, "eve": 6}, "target": "all"}
+
+
+def test_shares_add_up_to_the_harvest():
+    assert food.shares(6, {"eve": 17, "adam": 9}) == {"eve": 4, "adam": 2}
+    assert food.shares(6, {"eve": 0, "adam": 0}) == {"eve": 0, "adam": 0}
+    assert food.shares(5, {"a": 1, "b": 1, "c": 1}) == {"a": 2, "b": 2, "c": 1}
+    assert sum(food.shares(9, {"a": 3, "b": 4, "c": 9}).values()) == 9
 
 
 def test_no_reckoning_at_the_first_dawn(tmp_path):
@@ -69,8 +77,9 @@ def test_give_and_steal_rules():
 
 def test_agents_know_their_food_and_the_rule():
     text = prompt(person("adam", food_=3), [person("eve", "F")], None, [], 40)[1]["content"]
-    assert ("You have 3 food. Each dawn everyone eats 1; whoever worked at least 2 turns the day before also "
-            "earns 2. Below -2 food you die of hunger.") in text
+    assert ("You have 3 food. Each dawn the world yields 3 food per person alive, shared among those who worked "
+            "the day before in proportion to their hours; then everyone eats 2. Below -2 food you die of hunger."
+            ) in text
     assert "food" not in text.split("People:")[1].split("You have")[0]  # others' food stays private
 
 
@@ -91,3 +100,9 @@ def test_everyone_learns_who_died_of_hunger(tmp_path):
     db.set("tick", DAWN_DAY_2)
     db.log("starve", "abel", food=-3)
     assert [r["kind"] for r in visible_events(db, "adam", DAWN_DAY_2)] == ["starve"]
+
+
+def test_everyone_sees_how_the_harvest_was_shared():
+    e = {"tick": DAWN_DAY_2, "kind": "harvest", "agent": "world",
+         "data": json.dumps({"total": 6, "shares": {"eve": 4, "adam": 2}, "target": "all"})}
+    assert describe(e, "adam") == "Week 1, day 2, 07:00: The harvest of 6 food was shared by hours worked: Eve 4, you 2"

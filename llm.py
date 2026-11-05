@@ -52,7 +52,7 @@ VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "pra
          "petition": "petitioned God", "revelation": "said to", "appoint": "appointed as representative",
          "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on",
          "starve": "died of hunger", "request_child": "asked God for a child with", "birth": "was born",
-         "child_denied": "refused a child to"}
+         "child_denied": "refused a child to", "harvest": "shared the harvest"}
 
 
 RATE_LIMIT_ATTEMPTS = 3
@@ -86,6 +86,10 @@ def describe(event, me):
     line = f"{clock(event['tick'])}: {who(event['agent'])} {verb}"
     if "target" in data:
         line += f" {who(data['target'])}"
+    if event["kind"] == "harvest":
+        given = ", ".join(f"{who(n)} {s}" for n, s in data["shares"].items()) or "nobody had worked"
+        line = f"{clock(event['tick'])}: The harvest of {data['total']} food was shared by hours worked: {given}"
+        return line[0].upper() + line[1:]
     if "parents" in data:
         line += " to " + " and ".join(who(p) for p in data["parents"])
     if "amount" in data:
@@ -126,8 +130,9 @@ def prompt(me, others, proposer, events, tick, routine=None):
         for o in others
     )
     mine = "\n".join(f'You promised: "{p["spec"]["body"]}"' for p in me["promises"]) or "You have made no promise."
-    hunger = (f"You have {me['food']} food. Each dawn everyone eats {config.UPKEEP_PER_DAY}; whoever worked at least "
-              f"{config.WORK_TURNS_FOR_FOOD} turns the day before also earns {config.WORK_GAIN}. "
+    hunger = (f"You have {me['food']} food. Each dawn the world yields {config.HARVEST_PER_PERSON} food per person "
+              "alive, shared among those who worked the day before in proportion to their hours; then everyone "
+              f"eats {config.UPKEEP_PER_DAY}. "
               f"Below {config.STARVE_BELOW} food you die of hunger.")
     lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine, hunger]
     if me["parents"]:
