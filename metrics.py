@@ -5,6 +5,11 @@ from statistics import mean
 INTERACTIONS = {"speak", "give", "propose_marriage", "assess", "observe"}
 
 
+def event_rows(db):
+    return db.q("select agent, kind, json_extract(data, '$.target') as target, "
+                "json_extract(data, '$.kept') as kept from events")
+
+
 def segregation(events, agents):
     """events: rows with agent, kind, target, kept. agents: dicts with name, sex, group.
 

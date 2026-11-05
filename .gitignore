@@ -7,3 +7,5 @@ operator.log
 worlds/
 results/
 .env
+site/data.json
+.DS_Store

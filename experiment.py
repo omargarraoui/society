@@ -14,7 +14,7 @@ import kubernetes
 
 import config
 from db import DB, world_db_path
-from metrics import segregation
+from metrics import event_rows, segregation
 from state import load_k8s_config
 from world import create_world, mock_brain, parse_bias, run_tick
 
@@ -40,9 +40,7 @@ def run(core, api, name, world, seed, days, bias, control_model):
     db = DB(world_db_path(namespace))
     for _ in range(days * config.TICKS_PER_DAY):
         run_tick(db, api, namespace, mock_brain(bias, db))
-    events = db.q("select agent, kind, json_extract(data, '$.target') as target, "
-                  "json_extract(data, '$.kept') as kept from events")
-    return segregation(events, agents)
+    return segregation(event_rows(db), agents)
 
 
 def summarize(runs):
