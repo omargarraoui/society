@@ -9,6 +9,7 @@ import time
 
 import births
 import config
+import food
 import llm
 from state import patch_status
 
@@ -22,9 +23,11 @@ SCHEMA = {
             "properties": {"to": {"type": "string"}, "message": {"type": "string"}}}},
         "representative": {"type": ["string", "null"]},
         "penalties": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["target", "penalty", "days", "reason"],
+            "type": "object", "additionalProperties": False,
+            "required": ["target", "penalty", "days", "amount", "victim", "reason"],
             "properties": {"target": {"type": "string"}, "penalty": {"type": "string", "enum": config.PENALTIES},
-                           "days": {"type": ["integer", "null"]}, "reason": {"type": "string"}}}},
+                           "days": {"type": ["integer", "null"]}, "amount": {"type": ["integer", "null"]},
+                           "victim": {"type": ["string", "null"]}, "reason": {"type": "string"}}}},
         "children": {"type": "array", "items": {
             "type": "object", "additionalProperties": False, "required": ["parent", "approve", "reason"],
             "properties": {"parent": {"type": "string"}, "approve": {"type": "boolean"},
@@ -35,7 +38,8 @@ SCHEMA = {
 INSTRUCTIONS = """Reply with JSON:
 - revelations: what you say, each to one person (their name) or to "all". An empty list is silence.
 - representative: the name of the person to appoint, or null to keep the current one.
-- penalties: each with target, penalty, days (exile only, otherwise null) and reason.
+- penalties: each with target, penalty and reason. days: for exile and no_children. amount: food for fine, and
+  for restitution, which gives back to victim what target stole from them. Unused fields are null.
 - children: your answer to each request for a child since yesterday: the parent who asked, approve, reason."""
 
 
@@ -79,6 +83,35 @@ def record(db, tick):
     return events, decisions
 
 
+def owed(db, thief, victim):
+    """Food the thief took from the victim and has not yet been made to give back."""
+    taken = db.one("select coalesce(sum(json_extract(data, '$.taken')), 0) as n from events where kind='steal' "
+                   "and agent=? and json_extract(data, '$.target')=?", (thief, victim))["n"]
+    returned = db.one("select coalesce(sum(json_extract(data, '$.amount')), 0) as n from events where kind='sentence' "
+                      "and json_extract(data, '$.penalty')='restitution' and json_extract(data, '$.target')=? "
+                      "and json_extract(data, '$.victim')=?", (thief, victim))["n"]
+    return taken - returned
+
+
+def penalty_problem(p, target, living, db):
+    """None when the code allows this penalty."""
+    penalty, days, amount = p["penalty"], p["days"], p["amount"]
+    victim = (p["victim"] or "").strip().lower()
+    if target not in living:
+        return "unknown person"
+    if penalty in ("exile", "no_children") and not (days and 1 <= days <= config.MAX_PENALTY_DAYS):
+        return f"{penalty} needs 1-{config.MAX_PENALTY_DAYS} days"
+    if penalty == "fine" and not (amount and 1 <= amount <= config.MAX_FINE):
+        return f"a fine is 1-{config.MAX_FINE} food"
+    if penalty == "restitution" and (victim not in living or victim == target):
+        return "restitution needs another living victim"
+    if penalty == "restitution" and not (amount and 1 <= amount <= owed(db, target, victim)):
+        return "restitution is at most what the record shows was stolen"
+    if penalty == "lose_role" and not living[target]["role"]:
+        return "target has no role"
+    return None
+
+
 def deaths_today(db, now):
     return db.one("select count(*) as n from decisions where kind='death' and status!='vetoed' and created>?",
                   (now - 24 * 60 * 60,))["n"]
@@ -107,18 +140,15 @@ def apply(db, api, namespace, agents, tick, answer, now):
 
     for p in answer["penalties"]:
         target, penalty = p["target"].strip().lower(), p["penalty"]
-        if target not in living:
-            db.log("invalid", "god", action="sentence", reason="unknown person", sentence=p)
-            continue
-        if penalty == "exile" and not (p["days"] and 1 <= p["days"] <= config.MAX_EXILE_DAYS):
-            db.log("invalid", "god", action="sentence", sentence=p,
-                   reason=f"exile needs 1-{config.MAX_EXILE_DAYS} days")
+        problem = penalty_problem(p, target, living, db)
+        if problem is not None:
+            db.log("invalid", "god", action="sentence", reason=problem, sentence=p)
             continue
         if penalty == "death" and deaths_today(db, now) >= config.MAX_DEATHS_PER_DAY:
             db.set("paused", True)
             db.log("anomaly", "god", reason="too many deaths in a day: world paused", sentence=p)
             continue
-        days = p["days"] if penalty == "exile" else None
+        days = p["days"] if penalty in ("exile", "no_children") else None
         if penalty in config.VETO_PENALTIES:
             decision = db.x("insert into decisions(created, due, tick, kind, target, days, reason, status) "
                             "values(?, ?, ?, ?, ?, ?, ?, 'pending')",
@@ -126,11 +156,25 @@ def apply(db, api, namespace, agents, tick, answer, now):
             db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"], decision=decision,
                    **({"days": days} if days else {}))
             continue
-        field = {"warning": "warnings", "mark": "marks"}[penalty]
-        patch_status(api, namespace, living[target], **{field: [*living[target][field], p["reason"]]})
+        agent, extra = living[target], {}
+        if penalty in ("warning", "mark"):
+            field = {"warning": "warnings", "mark": "marks"}[penalty]
+            patch_status(api, namespace, agent, **{field: [*agent[field], p["reason"]]})
+        elif penalty == "fine":
+            patch_status(api, namespace, agent, food=agent["food"] - p["amount"])
+            extra = {"amount": p["amount"]}
+        elif penalty == "restitution":
+            victim = p["victim"].strip().lower()
+            food.move(api, namespace, agent, living[victim], p["amount"])
+            extra = {"amount": p["amount"], "victim": victim}
+        elif penalty == "no_children":
+            patch_status(api, namespace, agent, childrenBannedUntil=tick + days * config.TICKS_PER_DAY)
+            extra = {"days": days}
+        else:
+            patch_status(api, namespace, agent, role=None)
         db.x("insert into decisions(created, due, tick, kind, target, days, reason, status) "
-             "values(?, ?, ?, ?, ?, NULL, ?, 'applied')", (now, now, tick, penalty, target, p["reason"]))
-        db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"])
+             "values(?, ?, ?, ?, ?, ?, ?, 'applied')", (now, now, tick, penalty, target, days, p["reason"]))
+        db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"], **extra)
 
 
 def apply_due(db, api, namespace, agents, tick, now):

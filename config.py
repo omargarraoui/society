@@ -69,10 +69,11 @@ GOD_MODEL = "gemma"  # il modello dell'agente-Dio e' separato da quello dei grup
 CONSTITUTION_PATH = "constitution.md"  # scritta dall'utente: l'agente-Dio la legge, non la puo' cambiare
 
 # --- Agente-Dio: limiti duri imposti dal codice ---
-PENALTIES = ["warning", "mark", "exile", "death"]  # cibo e figli arrivano con cibo e nascite
+PENALTIES = ["warning", "mark", "restitution", "fine", "no_children", "lose_role", "exile", "death"]
 VETO_PENALTIES = {"exile", "death"}  # aspettano 24 ore reali: l'utente puo' annullarle con /annulla
 VETO_SECONDS = 24 * 60 * 60
-MAX_EXILE_DAYS = 7
+MAX_PENALTY_DAYS = 7  # esilio e divieto di figli
+MAX_FINE = 5  # scelto da Claude il 5/11/2026, pari al cibo iniziale: non era stato deciso
 # Piu' morti di cosi' in un giorno reale = decisione anomala: il mondo va in pausa e arriva un allarme.
 MAX_DEATHS_PER_DAY = 1
 
