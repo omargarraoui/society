@@ -27,3 +27,10 @@ Valgono per ogni riga. Codice che non sapresti spiegare riga per riga non entra 
 11. Un commit = una modifica, annullabile da sola.
 12. Lint con Ruff, con `BLE001` (except generico) e `PLC0415` (import dentro le funzioni) attivi. Ogni `# noqa` va giustificato nel commento.
 13. Dopo ogni modifica: rileggere il diff contro tutto il progetto, togliere prima di aggiungere (guardie morte, costanti usate una volta, wrapper inutili).
+
+## Testi per persone (pagina pubblica, messaggi)
+
+La pagina è in inglese, per amici non tecnici. Ogni testo scritto per persone deve sembrare scritto da una persona:
+niente formule "non X, ma Y", niente aggettivi vuoti o frasi che segnalano importanza, niente benefici senza costi,
+niente transizioni da tema scolastico, niente parole da marketing, niente metafore al posto dei fatti, niente
+storie troppo pulite, niente richieste di like. Fatti e numeri concreti, frasi di lunghezza varia, contrazioni.
