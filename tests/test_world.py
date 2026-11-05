@@ -16,7 +16,7 @@ TICK = 40
 
 def agent(name, model, sex="M", promises=(PROMISE,), spouse=None, role=None, exiled_until=-1):
     return {"name": name, "model": model, "sex": sex, "promises": list(promises), "spouse": spouse, "alive": True,
-            "role": role, "exiled_until": exiled_until, "marks": [], "warnings": []}
+            "role": role, "exiled_until": exiled_until, "marks": [], "warnings": [], "food": 5}
 
 
 def test_everyone_is_awake_at_noon():
@@ -179,3 +179,11 @@ def test_observe_shows_at_most_the_limit_and_nothing_older_than_yesterday(tmp_pa
         db.log("work", "eve")
     seen = observed(db, "eve", tick=2 * 96 + 30)  # day 3: yesterday = day 2
     assert [s["tick"] for s in seen] == list(range(96 + 34, 96 + 42))
+
+
+def test_mock_never_gives_food_it_does_not_have(tmp_path):
+    poor = {**agent("adam", "groq"), "food": 0}
+    others = [EVE, SETH]
+    decide = mock_brain({}, DB(str(tmp_path / "t.db")))
+    kinds = {decide(random.Random(s), poor, others, None, tick=TICK)[0] for s in range(300)}
+    assert "give" not in kinds

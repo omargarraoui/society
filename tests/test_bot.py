@@ -5,8 +5,8 @@ from db import DB
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
 AGENTS = {
-    "adam": {"name": "adam", "sex": "M", "model": "groq", "spouse": "eve", "promises": [PROMISE]},
-    "eve": {"name": "eve", "sex": "F", "model": "gemini", "spouse": "adam", "promises": []},
+    "adam": {"name": "adam", "sex": "M", "model": "groq", "spouse": "eve", "promises": [PROMISE], "food": 5},
+    "eve": {"name": "eve", "sex": "F", "model": "gemini", "spouse": "adam", "promises": [], "food": 5},
 }
 
 

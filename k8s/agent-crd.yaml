@@ -42,3 +42,4 @@ spec:
                 exiledUntil: {type: integer}
                 marks: {type: array, items: {type: string}}
                 warnings: {type: array, items: {type: string}}
+                food: {type: integer}

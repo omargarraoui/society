@@ -14,6 +14,7 @@ from collections import Counter
 import kubernetes
 
 import config
+import food
 import god
 import llm
 from db import DB, quota_db_path, world_db_path
@@ -22,9 +23,8 @@ from state import GROUP, crd, load_agents, load_k8s_config, patch_status
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
 MOCK_WEIGHTS = {"work": 35, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10, "observe": 5}
 TARGETED = {"speak", "give", "steal", "propose_marriage", "accept_marriage", "assess", "observe"}
-
-
-
+# A new world starts at dawn, and at dawn the food is reckoned and God acts.
+DAWN = config.NIGHT_END_HOUR * config.TICKS_PER_DAY // 24
 
 
 def awake(names, tick, rng):
@@ -59,6 +59,7 @@ def mock_action(rng, me, others, proposer, bias):
         "work": [],
         "propose_marriage": [] if me["spouse"] else [o for o in others if o["sex"] != me["sex"] and not o["spouse"]],
         "assess": [o for o in others if checkable(o)],
+        "give": others if me["food"] >= 1 else [],
     }.get(kind, others)
     if not candidates:
         return "work", {}
@@ -66,6 +67,8 @@ def mock_action(rng, me, others, proposer, bias):
     data = {"target": target["name"]}
     if kind == "speak":
         data["message"] = "Hello."
+    if kind in ("give", "steal"):
+        data["amount"] = 1
     if kind == "assess":
         data["promise"] = rng.choice(checkable(target))["metadata"]["name"]
     return kind, data
@@ -96,9 +99,11 @@ def visible_events(db, name, tick):
     since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
     kinds = [*config.ACTIONS, *config.GOD_EVENTS]
     marks = ",".join("?" * len(kinds))
-    rows = db.q(f"select tick, kind, agent, data from events where kind in ({marks}) and tick>=? "
-                "and (agent=? or json_extract(data, '$.target') in (?, 'all')) order by id desc limit 15",
-                (*kinds, since, name, name))
+    public = ",".join("?" * len(config.PUBLIC_EVENTS))
+    rows = db.q(f"select tick, kind, agent, data from events where tick>=? and (kind in ({public}) or "
+                f"(kind in ({marks}) and (agent=? or json_extract(data, '$.target') in (?, 'all')))) "
+                "order by id desc limit 15",
+                (since, *config.PUBLIC_EVENTS, *kinds, name, name))
     return rows[::-1]
 
 
@@ -147,6 +152,10 @@ def invalid_reason(kind, data, me, agents, proposer, tick):
         return "marriage is between an unmarried man and an unmarried woman"
     if kind == "accept_marriage" and (proposer is None or proposer is not target):
         return "no pending proposal from target"
+    if kind in ("give", "steal") and not (isinstance(data.get("amount"), int) and data["amount"] >= 1):
+        return "amount must be at least 1"
+    if kind == "give" and data["amount"] > me["food"]:
+        return "not enough food"
     if kind == "assess" and find_promise(target, data.get("promise")) is None:
         return "assess needs one of target's promises"
     if kind == "assess" and not isinstance(data.get("kept"), bool):
@@ -165,9 +174,6 @@ def pending_proposer(db, me, agents):
     return agents[row["agent"]]
 
 
-
-
-
 def marry(api, namespace, a, b):
     for x, y in ((a, b), (b, a)):
         patch_status(api, namespace, x, spouse=y["name"])
@@ -178,14 +184,16 @@ def run_tick(db, api, namespace, brain, god_turn=None):
     agents = load_agents(api, namespace)
     if not agents:
         raise SystemExit(f"no agents in namespace {namespace}: create the world first")
-    # A new world starts at dawn, otherwise the first tick finds everyone asleep.
-    tick = db.get("tick", config.NIGHT_END_HOUR * config.TICKS_PER_DAY // 24)
+    # Starting at dawn, not midnight: otherwise the first tick finds everyone asleep.
+    tick = db.get("tick", DAWN)
     db.set("tick", tick)
     # Seeded by world seed and tick so a run can be replayed.
     rng = random.Random(f"{db.get('seed', 0)}:{tick}")
     god.apply_due(db, api, namespace, agents, tick, time.time())
-    if god_turn is not None and tick % config.TICKS_PER_DAY == config.NIGHT_END_HOUR * config.TICKS_PER_DAY // 24:
-        god_turn(db, api, namespace, agents, tick)
+    if tick % config.TICKS_PER_DAY == DAWN:
+        food.feed(db, api, namespace, agents, tick)
+        if god_turn is not None:
+            god_turn(db, api, namespace, agents, tick)
     living = {n: a for n, a in agents.items() if a["alive"]}
     for name in awake(sorted(living), tick, rng):
         me = living[name]
@@ -209,6 +217,10 @@ def run_tick(db, api, namespace, brain, god_turn=None):
             }))
         elif kind == "accept_marriage":
             marry(api, namespace, me, living[data["target"]])
+        elif kind == "give":
+            food.move(api, namespace, me, living[data["target"]], data["amount"])
+        elif kind == "steal":
+            data["taken"] = food.steal(api, namespace, me, living[data["target"]], data["amount"])
         elif kind == "observe":
             data["saw"] = observed(db, data["target"], tick)
         elif kind == "assess":
@@ -277,9 +289,6 @@ def create_world(core, api, namespace, agents, seed, labels=None):
         })
     os.makedirs(config.DB_DIR, exist_ok=True)
     DB(path).set("seed", seed)
-
-
-
 
 
 def parse_bias(pairs):

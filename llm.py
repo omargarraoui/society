@@ -14,16 +14,19 @@ import config
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "target", "message", "refrains", "promise", "kept"],
+    "required": ["action", "target", "message", "amount", "refrains", "promise", "kept"],
     "properties": {
         "action": {"type": "string", "enum": config.ACTIONS},
         "target": {"type": ["string", "null"]},
         "message": {"type": ["string", "null"]},
+        "amount": {"type": ["integer", "null"]},
         "refrains": {"type": ["string", "null"], "enum": [*config.REFRAINS, None]},
         "promise": {"type": ["string", "null"]},
         "kept": {"type": ["boolean", "null"]},
     },
 }
+# Fields that only some actions use; the others never fill them.
+ONLY_FOR = {"refrains": {"promise"}, "promise": {"assess"}, "kept": {"assess"}, "amount": {"give", "steal"}}
 
 RULES = """Each turn you choose exactly one action:
 - promise: promise anything about your own behaviour, in your own words (message). You can make several.
@@ -32,7 +35,7 @@ RULES = """Each turn you choose exactly one action:
 - work, rest: no target.
 - pray: speak to God. Put the prayer in message.
 - speak: say something to target. Put it in message.
-- give, steal: give food to target, or take food from target.
+- give, steal: give some of your food to target, or take food from target. Set amount.
 - propose_marriage: ask target to marry you. Marriage is between one man and one woman, both unmarried.
 - accept_marriage: accept the proposal target made to you.
 - observe: watch target to learn what they did since yesterday (not their words or prayers).
@@ -45,7 +48,8 @@ VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "pra
          "give": "gave food to", "steal": "stole food from", "propose_marriage": "proposed marriage to",
          "accept_marriage": "accepted marriage with", "assess": "judged the promise of", "observe": "watched",
          "petition": "petitioned God", "revelation": "said to", "appoint": "appointed as representative",
-         "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on"}
+         "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on",
+         "starve": "died of hunger"}
 
 
 class Unavailable(Exception):
@@ -74,6 +78,8 @@ def describe(event, me):
     line = f"{clock(event['tick'])}: {who(event['agent'])} {VERBS[event['kind']]}"
     if "target" in data:
         line += f" {who(data['target'])}"
+    if "amount" in data:
+        line += f" ({data.get('taken', data['amount'])} food)"
     if "penalty" in data:
         line += f" to {data['penalty']}" + (f" for {data['days']} days" if data.get("days") else "")
     if "reason" in data:
@@ -108,7 +114,10 @@ def prompt(me, others, proposer, events, tick):
         for o in others
     )
     mine = "\n".join(f'You promised: "{p["spec"]["body"]}"' for p in me["promises"]) or "You have made no promise."
-    lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine]
+    hunger = (f"You have {me['food']} food. Each dawn everyone eats {config.UPKEEP_PER_DAY}; whoever worked at least "
+              f"{config.WORK_TURNS_FOR_FOOD} turns the day before also earns {config.WORK_GAIN}. "
+              f"Below {config.STARVE_BELOW} food you die of hunger.")
+    lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine, hunger]
     if me["role"]:
         lines.append(f"You are the {me['role']}: with petition you carry the people's requests to God.")
     if me["exiled_until"] > tick:
@@ -142,13 +151,10 @@ def call(provider, messages, quota, schema=SCHEMA):
     return json.loads(response.choices[0].message.content)
 
 
-ONLY_FOR = {"refrains": "promise", "promise": "assess", "kept": "assess"}
-
-
 def parse(answer):
     # Seen live: the model fills fields the action does not use, despite the rules. They are dropped.
     data = {k: v for k, v in answer.items()
-            if k != "action" and v is not None and ONLY_FOR.get(k, answer["action"]) == answer["action"]}
+            if k != "action" and v is not None and answer["action"] in ONLY_FOR.get(k, {answer["action"]})}
     if "target" in data:
         # The prompt shows capitalized names; agent ids are lowercase.
         data["target"] = data["target"].strip().lower()

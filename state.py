@@ -3,6 +3,8 @@ import os
 
 import kubernetes
 
+import config
+
 GROUP = "society.local"
 
 
@@ -20,7 +22,8 @@ def crd(plural, namespace):
 
 # Agent status in k8s (camelCase) -> key in the in-memory agent, with the value before anything happened.
 STATUS = {"spouse": ("spouse", None), "alive": ("alive", True), "role": ("role", None),
-          "exiledUntil": ("exiled_until", -1), "marks": ("marks", []), "warnings": ("warnings", [])}
+          "exiledUntil": ("exiled_until", -1), "marks": ("marks", []), "warnings": ("warnings", []),
+          "food": ("food", config.START_FOOD)}
 
 
 def load_agents(api, namespace):

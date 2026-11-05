@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from fakes import FakeK8s
 
 import config
 import god
@@ -12,25 +13,15 @@ NOW = 1_000_000.0
 DAY = 24 * 60 * 60
 
 
-class K8sStatus:
-    """Stands in for the k8s API: keeps the last status written for each agent."""
-
-    def __init__(self):
-        self.status = {}
-
-    def patch_namespaced_custom_object_status(self, name, body, **_):
-        self.status.setdefault(name, {}).update(body["status"])
-
-
 def person(name, sex, role=None):
     return {"name": name, "sex": sex, "model": "groq", "spouse": None, "promises": [], "alive": True, "role": role,
-            "exiled_until": -1, "marks": [], "warnings": []}
+            "exiled_until": -1, "marks": [], "warnings": [], "food": 5}
 
 
 def world(tmp_path):
     db = DB(str(tmp_path / "w.db"))
     db.set("tick", TICK)
-    return db, K8sStatus(), {"adam": person("adam", "M", role="representative"), "eve": person("eve", "F")}
+    return db, FakeK8s(), {"adam": person("adam", "M", role="representative"), "eve": person("eve", "F")}
 
 
 def answer(revelations=(), representative=None, penalties=()):
@@ -106,7 +97,7 @@ def test_a_second_death_in_a_day_pauses_the_world(tmp_path):
 def test_god_sees_neither_model_nor_group(tmp_path):
     agents = world(tmp_path)[2]
     text = json.dumps(god.prompt("Constitution.", agents, TICK, [], []))
-    assert "groq" not in text and "Adam, man; the representative" in text
+    assert "groq" not in text and "Adam, man; food 5; the representative" in text
 
 
 def test_exile_and_role_rules_for_agents():

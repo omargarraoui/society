@@ -39,7 +39,8 @@ def status_text(world, db, quota, agents):
     lines = [f"Mondo {world}: {llm.clock(tick)} (tick {tick})" + (", IN PAUSA" if db.get("paused", False) else "")]
     for a in agents.values():
         spouse = f", sposato con {a['spouse'].capitalize()}" if a["spouse"] else ""
-        lines.append(f"- {a['name'].capitalize()} ({a['model']}){spouse}, promesse: {len(a['promises'])}")
+        lines.append(f"- {a['name'].capitalize()} ({a['model']}){spouse}, promesse: {len(a['promises'])}, "
+                     f"cibo: {a['food']}")
     lines.append("Quote di oggi:")
     for model in sorted({a["model"] for a in agents.values()}):
         requests, tokens = quota.usage(model)

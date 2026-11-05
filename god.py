@@ -33,7 +33,7 @@ INSTRUCTIONS = """Reply with JSON:
 
 
 def describe_person(agent, tick):
-    parts = [f"{agent['name'].capitalize()}, {'man' if agent['sex'] == 'M' else 'woman'}"]
+    parts = [f"{agent['name'].capitalize()}, {'man' if agent['sex'] == 'M' else 'woman'}", f"food {agent['food']}"]
     if agent["spouse"]:
         parts.append(f"married to {agent['spouse'].capitalize()}")
     if agent["role"]:
