@@ -18,6 +18,8 @@ const FILTER_OF = {
   give: "food", steal: "food", starve: "food",
 };
 const PAGE = 60;
+const LIVE_URL = "https://omar-society.spaincentral.cloudapp.azure.com/events";
+const WIRE_LENGTH = 80;
 
 let data, people, filter = "all", shown = PAGE;
 
@@ -56,7 +58,8 @@ function when(tick) {
   };
 }
 
-const quote = (text) => el("span", { class: "quote", lang: "en" }, `“${text}”`);
+const quote = (text) => el("span", { class: "quote", lang: "en" }, `“${text.trim()}”`);
+const times = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 function sentence(e) {
   const d = e.data;
@@ -86,6 +89,10 @@ function sentence(e) {
     case "child_denied": return [A, " said no to a child for ", B, quote(d.reason)];
     case "birth": return [A, " was born to ", who(d.parents[0]), " and ", who(d.parents[1])];
     case "starve": return [A, " died of hunger"];
+    case "work": return [A, " worked"];
+    case "rest": return [A, " rested"];
+    case "skip": return [A, ` missed a turn (${d.reason})`];
+    case "invalid": return [A, ` tried something the rules don't allow: ${d.action} (${d.reason})`];
     case "anomaly": return [A, "'s decision was blocked and the world paused: ", d.reason];
     default: return [A, ` ${e.kind}`];
   }
@@ -116,7 +123,7 @@ function renderStats() {
   const promises = data.people.flatMap((p) => p.promises);
   const tiles = [
     [alive.length, `alive${alive.some((p) => p.child) ? `, ${alive.filter((p) => p.child).length} children` : ""}`],
-    [promises.length, "promises made"],
+    [promises.length, promises.length === 1 ? "promise made" : "promises made"],
     [data.totals.steal || 0, "thefts"],
     [data.totals.accept_marriage || 0, "marriages"],
     [data.totals.birth || 0, "births"],
@@ -135,7 +142,9 @@ function renderPeople() {
       p.spouse ? ["Married to ", who(p.spouse)] : null,
       p.parents.length ? ["Child of ", who(p.parents[0]), " and ", who(p.parents[1])] : null,
       p.child ? "Still a child" : null,
-      `${p.promises.length} ${p.promises.length === 1 ? "promise" : "promises"}`,
+      `${times(p.promises.length, "promise", "promises")}`,
+      `Worked ${times(p.did.work || 0, "hour", "hours")}, rested ${p.did.rest || 0}, `
+        + `spoke ${times((p.did.speak || 0) + (p.did.pray || 0) + (p.did.petition || 0), "time", "times")}`,
     ].filter(Boolean);
     const tags = [
       p.role ? el("span", { class: "tag god" }, `The ${p.role}`) : null,
@@ -190,9 +199,10 @@ function renderPromises() {
     const t = when(p.tick);
     return el("article", { class: "promise" },
       el("div", {}, who(p.by), el("span", { class: "model" }, `  week ${t.week}, day ${t.weekday}, ${t.time}`)),
-      el("p", { class: "body", lang: "en" }, `“${p.body}”`),
+      el("p", { class: "body", lang: "en" }, `“${p.body.trim()}”`),
       el("div", { class: "verdicts" }, record,
-        el("span", {}, `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×`)));
+        el("span", {}, p.judged_kept + p.judged_broken
+          ? `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×` : "Nobody has judged it yet")));
   }) : [el("p", { class: "empty" }, "No promises yet.")]));
 }
 
@@ -204,7 +214,7 @@ function renderGod() {
   const day = (tick) => { const t = when(tick); return `week ${t.week}, day ${t.weekday}`; };
   document.getElementById("god").replaceChildren(el("div", { class: "god-grid" },
     el("div", { class: "god-words" },
-      words.length ? words.map((e) => el("blockquote", { lang: "en" }, `“${e.data.message}”`,
+      words.length ? words.map((e) => el("blockquote", { lang: "en" }, `“${e.data.message.trim()}”`,
         el("footer", {}, "To ", e.data.target === "all" ? "everyone" : cap(e.data.target), `, ${day(e.tick)}`)))
         : el("p", { class: "empty" }, "God hasn't spoken yet.")),
     el("div", { class: "god-side" },
@@ -279,12 +289,39 @@ function render() {
 
 document.getElementById("more").addEventListener("click", () => { shown += PAGE; renderFeed(); });
 
+// The live mirror needs the people (for names and colors), so it starts after data.json has loaded.
+function startLive() {
+  const wire = document.getElementById("wire");
+  const status = document.getElementById("live-status");
+  const add = (item) => {
+    wire.prepend(item);
+    while (wire.children.length > WIRE_LENGTH) wire.lastChild.remove();
+  };
+  let now = "";
+  const source = new EventSource(LIVE_URL);
+  source.onopen = () => { status.textContent = `connected${now}`; status.className = "live-status on"; };
+  source.onerror = () => { status.textContent = "reconnecting…"; status.className = "live-status"; };
+  // The server announces a tick once the previous one is done, so the time sits in the status, and each line
+  // carries the time of its own event.
+  source.addEventListener("tick", (message) => {
+    const t = when(JSON.parse(message.data).tick);
+    now = ` · world day ${t.day + 1}, ${t.time}`;
+    status.textContent = `connected${now}`;
+  });
+  source.addEventListener("world", (message) => {
+    const e = JSON.parse(message.data);
+    const t = when(e.tick);
+    add(el("li", { class: ["work", "rest"].includes(e.kind) ? "routine" : "" },
+      el("time", {}, `day ${t.day + 1} ${t.time}`), ...sentence(e)));
+  });
+}
+
 fetch(`data.json?t=${Date.now()}`)
   .then((response) => {
     if (!response.ok) throw new Error(`data.json: HTTP ${response.status}`);
     return response.json();
   })
-  .then((json) => { data = json; render(); })
+  .then((json) => { data = json; render(); startLive(); })
   .catch((error) => {
     document.getElementById("now").textContent = "Couldn't load the data. Try again in a minute.";
     console.error(error);
