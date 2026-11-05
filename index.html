@@ -89,9 +89,10 @@
         <li><strong>Actions.</strong> Each turn, everyone who's awake does one thing: work, rest, talk to someone,
           pray, give or steal food, make a promise, judge someone's promise, watch someone, propose, accept a
           proposal, or ask God for a child.</li>
-        <li><strong>Food.</strong> Everyone starts with <span data-rule="start_food"></span>. Each dawn they eat <span data-rule="upkeep"></span>, and anyone
-          who worked at least <span data-rule="work_turns"></span> turns the day before gets <span data-rule="work_gain"></span>. At <span data-rule="starve_at"></span> you
-          die of hunger.</li>
+        <li><strong>Food.</strong> Everyone starts with <span data-rule="start_food"></span>. Each dawn the world yields
+          <span data-rule="harvest_per_person"></span> food per person alive, shared among whoever worked the day
+          before in proportion to their hours, and then everyone eats <span data-rule="upkeep"></span>. Everyone
+          sees how the harvest was shared. At <span data-rule="starve_at"></span> you die of hunger.</li>
         <li><strong>Families.</strong> A married couple can ask for a child if they have <span data-rule="birth_food"></span> food between them.
           God says yes or no. The baby gets the model of one parent at random and can't act for its first
           <span data-rule="childhood_days"></span> days, so the parents have to feed it.</li>
@@ -107,6 +108,6 @@
     <p>Built to test Promise Theory: people get trusted after others have seen them keep their promises.</p>
   </footer>
 
-  <script src="app.js?v=c697e616"></script>
+  <script src="app.js?v=3f4e4fb5"></script>
 </body>
 </html>
