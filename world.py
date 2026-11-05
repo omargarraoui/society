@@ -98,9 +98,13 @@ def mock_brain(bias, db):
 
 
 def visible_events(db, name, tick):
-    """What the agent did or had done to it since the start of yesterday, plus what anyone did in public."""
+    """What the agent did or had done to it since the start of yesterday, plus what anyone did in public.
+
+    Work and rest are left out, the agent's own included: seen live, they filled all 15 places and pushed
+    God's words out. routine() sums them up in one line instead.
+    """
     since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
-    kinds = [*config.ACTIONS, *config.GOD_EVENTS]
+    kinds = [k for k in (*config.ACTIONS, *config.GOD_EVENTS) if k not in ("work", "rest")]
     marks = ",".join("?" * len(kinds))
     public = ",".join("?" * len(config.PUBLIC_EVENTS))
     rows = db.q(f"select tick, kind, agent, data from events where tick>=? and (kind in ({public}) or "
@@ -118,11 +122,11 @@ def private_words_removed(event, name):
     return event
 
 
-def routine_of_others(db, name, tick):
-    """Hours each other person worked and rested since the start of yesterday: one line, not one per turn."""
+def routine(db, tick):
+    """Hours each person worked and rested since the start of yesterday: one line, not one per turn."""
     since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
-    rows = db.q("select agent, kind, count(*) as n from events where tick>=? and agent!=? and kind in ('work', 'rest') "
-                "group by agent, kind order by agent", (since, name))
+    rows = db.q("select agent, kind, count(*) as n from events where tick>=? and kind in ('work', 'rest') "
+                "group by agent, kind order by agent", (since,))
     routine = {}
     for r in rows:
         routine.setdefault(r["agent"], {})[r["kind"]] = r["n"]
@@ -143,7 +147,7 @@ def observed(db, name, tick):
 def llm_brain(db, quota):
     def decide(rng, me, others, proposer, tick):
         return llm.decide(me, others, proposer, visible_events(db, me["name"], tick), tick, quota,
-                          routine_of_others(db, me["name"], tick))
+                          routine(db, tick))
     return decide
 
 

@@ -142,8 +142,8 @@ def prompt(me, others, proposer, events, tick, routine=None):
     lines.append("What you saw recently:\n" + ("\n".join(describe(e, me["name"]) for e in events) or "nothing"))
     if routine:
         lines.append("Since yesterday: " + "; ".join(
-            f"{name.capitalize()} worked {hours.get('work', 0)} hours and rested {hours.get('rest', 0)}"
-            for name, hours in routine.items()) + ".")
+            f"{'you' if name == me['name'] else name.capitalize()} worked {hours.get('work', 0)} hours "
+            f"and rested {hours.get('rest', 0)}" for name, hours in routine.items()) + ".")
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(lines)}]
 
 

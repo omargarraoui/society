@@ -5,7 +5,7 @@ import pytest
 from fakes import at
 
 from db import DB
-from world import awake, invalid_reason, mock_action, mock_brain, observed, pick, routine_of_others, visible_events
+from world import awake, invalid_reason, mock_action, mock_brain, observed, pick, routine, visible_events
 
 NAMES = ["adam", "eve"]
 NOON = at(1, 12)
@@ -207,10 +207,20 @@ def test_others_public_actions_are_seen_but_not_their_words_or_private_acts(tmp_
     assert json.loads(visible_events(db, "seth", at(1, 10))[0]["data"])["message"] == "secret plan"
 
 
-def test_others_routine_is_one_summary(tmp_path):
+def test_routine_is_one_summary(tmp_path):
     db = DB(str(tmp_path / "t.db"))
     for hour, kind in [(8, "work"), (9, "work"), (10, "rest")]:
         db.set("tick", at(1, hour))
         db.log(kind, "eve")
         db.log("work", "adam")
-    assert routine_of_others(db, "adam", at(1, 12)) == {"eve": {"work": 2, "rest": 1}}
+    assert routine(db, at(1, 12)) == {"adam": {"work": 3}, "eve": {"work": 2, "rest": 1}}
+
+
+def test_own_routine_does_not_push_god_out_of_the_memory(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    db.set("tick", at(1, 7))
+    db.log("revelation", "god", target="all", message="Share.")
+    for hour in range(8, 23):
+        db.set("tick", at(1, hour))
+        db.log("work", "adam")
+    assert [e["kind"] for e in visible_events(db, "adam", at(1, 23))] == ["revelation"]

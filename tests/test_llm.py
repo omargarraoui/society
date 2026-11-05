@@ -152,6 +152,7 @@ def test_parse_trims_the_message():
 
 def test_agents_see_who_talked_and_what_others_did_all_day():
     talked = event(at(1, 9), "speak", "eve", target="seth")
-    text = prompt(ADAM, [EVE], None, [talked], at(1, 12), {"eve": {"work": 5, "rest": 1}})[1]["content"]
+    text = prompt(ADAM, [EVE], None, [talked], at(1, 12), {"adam": {"work": 3}, "eve": {"work": 5, "rest": 1}}
+                  )[1]["content"]
     assert "Week 1, day 1, 09:00: Eve talked to Seth" in text
-    assert "Since yesterday: Eve worked 5 hours and rested 1." in text
+    assert "Since yesterday: you worked 3 hours and rested 0; Eve worked 5 hours and rested 1." in text
