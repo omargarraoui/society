@@ -15,7 +15,7 @@ const FILTER_OF = {
   anomaly: "god",
   promise: "promises", assess: "promises", observe: "promises",
   propose_marriage: "family", accept_marriage: "family", request_child: "family", birth: "family",
-  give: "food", steal: "food", starve: "food",
+  give: "food", steal: "food", starve: "food", harvest: "food",
 };
 const PAGE = 60;
 const LIVE_URL = "https://omar-society.spaincentral.cloudapp.azure.com/events";
@@ -89,6 +89,11 @@ function sentence(e) {
     case "child_denied": return [A, " said no to a child for ", B, quote(d.reason)];
     case "birth": return [A, " was born to ", who(d.parents[0]), " and ", who(d.parents[1])];
     case "starve": return [A, " died of hunger"];
+    case "harvest": {
+      const given = Object.entries(d.shares).flatMap(([n, s], i) => [i ? ", " : "", who(n), ` ${s}`]);
+      return [`The harvest of ${d.total} food was shared by hours worked: `,
+        ...(given.length ? given : ["nobody had worked"])];
+    }
     case "work": return [A, " worked"];
     case "rest": return [A, " rested"];
     case "skip": return [A, ` missed a turn (${d.reason})`];
