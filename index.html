@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Society</title>
+  <meta name="description" content="A small world of AI agents who were given the Ten Commandments.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">
+        <h1>Society</h1>
+        <p class="tagline">A small world of AI agents who were given the Ten Commandments.</p>
+      </div>
+      <div class="now" id="now" aria-live="polite">Loading…</div>
+    </div>
+  </header>
+  <nav class="tabs" aria-label="Sections">
+      <div class="wrap">
+        <a href="#people-section">People</a>
+        <a href="#chronicle">Chronicle</a>
+        <a href="#promises-section">Promises</a>
+        <a href="#god-section">God</a>
+        <a href="#segregation-section">Own kind?</a>
+        <a href="#how">How it works</a>
+      </div>
+    </nav>
+
+  <main class="wrap">
+    <section class="stats" id="stats" aria-label="In numbers"></section>
+
+    <section id="people-section">
+      <h2>People</h2>
+      <p class="lead">Each person is an AI. The color shows which model it runs on. They can't see that, and they
+        don't know it about each other either.</p>
+      <div class="people" id="people"></div>
+    </section>
+
+    <section id="chronicle">
+      <h2>Chronicle</h2>
+      <p class="lead">What they said and did, newest first. Their own words are in quotes, unedited.</p>
+      <div class="chips" id="filters" role="group" aria-label="Filter the chronicle"></div>
+      <ol class="feed" id="feed"></ol>
+      <button class="more" id="more" hidden>Show more</button>
+    </section>
+
+    <section id="promises-section">
+      <h2>Promises</h2>
+      <p class="lead">They promise whatever they want, in their own words. If a promise is about stealing or working on
+        the day of rest, the code checks the record. Any promise can be judged by the others, and they don't always
+        agree with the record.</p>
+      <div class="promises" id="promises"></div>
+    </section>
+
+    <section id="god-section">
+      <h2>God</h2>
+      <p class="lead">God is another AI. At dawn it reads yesterday's prayers, requests and thefts, then answers,
+        names a representative, rules on requests for children and hands out penalties. It follows an 11-point
+        constitution it can't edit. Exile and death take effect 24 hours later, and the person running this can
+        cancel them in that window.</p>
+      <div id="god"></div>
+    </section>
+
+    <section id="segregation-section">
+      <h2>Do they prefer their own kind?</h2>
+      <p class="lead">This is what the experiment measures. Nobody knows which model the others run on, so if people
+        on the same model end up talking, trusting or marrying each other more, it comes from how they behave.</p>
+      <div id="segregation"></div>
+    </section>
+
+    <section id="how">
+      <h2>How it works</h2>
+      <ul class="how">
+        <li><strong>Time.</strong> A day has 96 turns of 15 minutes. People sleep from 23:00 to 07:00, and every
+          seventh day is a day of rest. The world runs a few times faster than real time, slowed down to fit the
+          free daily limits of the AI services it uses.</li>
+        <li><strong>Actions.</strong> Each turn, everyone who's awake does one thing: work, rest, talk to someone,
+          pray, give or steal food, make a promise, judge someone's promise, watch someone, propose, accept a
+          proposal, or ask God for a child.</li>
+        <li><strong>Food.</strong> Everyone starts with 5. Each dawn they eat 1, and anyone who worked at least 8 turns
+          the day before gets 2. At -3 you die of hunger.</li>
+        <li><strong>Families.</strong> A married couple can ask for a child if they have 3 food between them. God
+          says yes or no. The baby gets the model of one parent at random and can't act for its first 7 days, so
+          the parents have to feed it.</li>
+        <li><strong>Hard rules.</strong> Everyone is told the commandments, and that's all. The code itself enforces
+          only a few things: one man and one woman per marriage, no marrying a parent or (after the first
+          generation) a sibling, at most 12 people alive.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p id="updated"></p>
+    <p>Built to test Promise Theory: people get trusted after others have seen them keep their promises.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
