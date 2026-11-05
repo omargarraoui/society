@@ -1,7 +1,7 @@
 """The public dashboard: a snapshot of one world as data.json, published to a GitHub Pages repo.
 
   python export.py data WORLD [--out FILE]   # FILE for a local preview; without it, push to GITHUB_REPO
-  python export.py site                      # push site/ and switch GitHub Pages on (once, and after changes)
+  python export.py site                      # push site/ (after changes to the page)
 """
 import argparse
 import base64
@@ -99,13 +99,11 @@ def main():
 
     if args.cmd == "site":
         repo, token = os.environ["GITHUB_REPO"], os.environ["GITHUB_TOKEN"]
-        for path in sorted(pathlib.Path("site").iterdir()):
+        # A local preview leaves a data.json in site/; the real one comes only from the world.
+        for path in sorted(p for p in pathlib.Path("site").iterdir() if p.name != "data.json"):
             put_file(repo, token, path.name, path.read_bytes(), f"Pagina: {path.name}")
-        try:
-            github(token, "POST", f"/repos/{repo}/pages", {"source": {"branch": "main", "path": "/"}})
-        except urllib.error.HTTPError as e:
-            if e.code != 409:  # 409: Pages is already on
-                raise
+        # Pages is switched on by hand once (Settings > Pages): doing it through the API needs a token with
+        # repository administration rights, too much for a token that lives on the server.
         print(f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/")
         return
 
