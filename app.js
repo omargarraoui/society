@@ -95,10 +95,14 @@ function renderNow() {
   const t = when(data.tick);
   const minutesAgo = Math.max(0, Math.round((Date.now() - Date.parse(data.updated)) / 60000));
   document.getElementById("now").replaceChildren(el("span", {},
-    el("strong", {}, `Week ${t.week}, day ${t.weekday}, ${t.time}`),
+    "In the world it's ", el("strong", {}, `week ${t.week}, day ${t.weekday}, ${t.time}`),
     t.rest && el("span", { class: "pill rest" }, "Day of rest"),
     data.paused && el("span", { class: "pill paused" }, "Paused"),
-    el("br"), `updated ${minutesAgo < 60 ? `${minutesAgo} min` : `${Math.round(minutesAgo / 60)} h`} ago`));
+    el("br"), `Page updated ${minutesAgo < 60 ? `${minutesAgo} min` : `${Math.round(minutesAgo / 60)} h`} ago`,
+    " (it refreshes every hour)"));
+  const realMinutesPerWorldHour = Math.round(60 / data.speed);
+  document.getElementById("speed").textContent = `: right now about ${data.speed.toFixed(1)} world days pass in `
+    + `one real day, so a world hour lasts about ${realMinutesPerWorldHour} real minutes`;
   document.getElementById("updated").textContent =
     `Data from ${new Date(data.updated).toLocaleString("en-GB")} (world: ${data.world}, turn ${data.tick}).`;
 }
@@ -155,7 +159,8 @@ function renderFeed() {
   for (const e of events.slice(0, shown)) {
     const t = when(e.tick);
     if (t.day !== lastDay) {
-      items.push(el("li", { class: "day" }, `Week ${t.week}, day ${t.weekday}${t.rest ? " (day of rest)" : ""}`));
+      items.push(el("li", { class: "day" },
+        `World week ${t.week}, day ${t.weekday}${t.rest ? " (day of rest)" : ""}`));
       lastDay = t.day;
     }
     items.push(el("li", { class: `event${e.agent === "god" ? " god" : ""}` },
