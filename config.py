@@ -33,6 +33,10 @@ MAX_SPEED = 10
 # Si punta al 90% delle quote: il costo in token di un turno e' una media e cresce con gli agenti.
 QUOTA_SHARE = 0.9
 
+# Bot Telegram: il digest arriva ogni sera a quest'ora (ora italiana).
+DIGEST_HOUR = 21
+DIGEST_TZ = "Europe/Rome"
+
 # --- Limiti duri (non modificabili dagli agenti ne' dall'agente-Dio) ---
 MAX_AGENTS = 12
 START_FOOD = 5

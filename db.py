@@ -20,6 +20,11 @@ def quota_day(provider):
     return datetime.datetime.now(tz).strftime("%Y-%m-%d")
 
 
+def quota_db_path():
+    """Quotas belong to the account, not to a world, so all worlds share one counter."""
+    return os.path.join(config.DB_DIR, "quota.db")
+
+
 def world_db_path(namespace):
     return os.path.join(config.DB_DIR, f"{namespace}.db")
 

@@ -14,7 +14,7 @@ import kubernetes
 
 import config
 import llm
-from db import DB, world_db_path
+from db import DB, quota_db_path, world_db_path
 
 GROUP = "society.local"
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
@@ -246,13 +246,17 @@ def world_days_per_day(model_counts, tokens_per_turn):
 
 def run_forever(db, api, namespace, brain, quota):
     while True:
+        # Set by the Telegram bot (/pausa, /riprendi), which shares this database.
+        if db.get("paused", False):
+            time.sleep(30)
+            continue
         started = time.monotonic()
         agents = run_tick(db, api, namespace, brain)
         counts = Counter(a["model"] for a in agents.values())
         speed = world_days_per_day(counts, {m: turn_tokens(quota, m) for m in counts})
-        pause = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
-        print(f"tick {db.get('tick') - 1}: {speed:.2f} world days per day, next tick in {pause:.0f}s", flush=True)
-        time.sleep(max(0.0, pause - (time.monotonic() - started)))
+        wait = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
+        print(f"tick {db.get('tick') - 1}: {speed:.2f} world days per day, next tick in {wait:.0f}s", flush=True)
+        time.sleep(max(0.0, wait - (time.monotonic() - started)))
 
 
 def create_world(core, api, namespace, agents, seed, labels=None):
@@ -313,8 +317,7 @@ def main():
         missing = [k for k in keys if k not in os.environ]
         if missing:
             raise SystemExit(f"missing API keys: {', '.join(missing)}")
-        # Quotas belong to the account, not to a world, so all worlds share one counter.
-        quota = DB(os.path.join(config.DB_DIR, "quota.db"))
+        quota = DB(quota_db_path())
         brain = llm_brain(db, quota)
     if args.cmd == "run":
         run_forever(db, api, args.namespace, brain, quota)
