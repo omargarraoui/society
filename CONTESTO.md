@@ -126,7 +126,8 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
   - Costituzione approvata dall'utente il 5 novembre 2026. Attivo sul server dallo stesso giorno: la prima alba (prima decisione di Dio) cade circa 7.7 ore dopo l'avvio.
   - Da tenere d'occhio: dopo l'aggiornamento la VM aveva load average 3.7-4.2 su 2 CPU e 750 MB di swap. La B2ats v2 è "burstable": un carico alto a lungo consuma i crediti CPU e la rallenta. Durante l'import dell'immagine l'API di k3s non ha risposto in tempo e l'aggiornamento delle CRD è fallito: va sempre ricontrollato.
   - Prova su kind (`dio1`): all'alba Dio ha rivelato "Let the first day begin in peace and purpose" e ha nominato Adam rappresentante, che ha subito fatto una petizione. Con un furto inserito a mano Dio ha dato a Eve un ammonimento ("Eve stole food from Adam."), come chiede la costituzione.
-- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), `rules.py` completo (parentela), le risposte di Dio alle nascite, il README e la dashboard pubblica.
+- Cibo, nascite e pene complete (5 novembre 2026): `food.py` (conto all'alba, fame, `give`/`steal` con quantità), `births.py` (richiesta, crescita, parentela, nascita), `god.py` risponde alle richieste di figli e ha il menu completo di 8 pene (restituzione limitata a quanto rubato, multa 1-5 scelta da Claude, divieto di figli 1-7 giorni, perdita del ruolo). Prova su kind (`nasc1`): con una richiesta inserita a mano Dio ha approvato ed è nata Adah (modello groq, da Adam); Adam ha ringraziato Dio. Da soli, in 40 tick, Adam ed Eve sposati non hanno mai chiesto un figlio: lavorano quasi sempre.
+- Mancano: il README e la dashboard pubblica.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
 Come si avvia (sviluppo):
