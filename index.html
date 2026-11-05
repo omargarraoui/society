@@ -5,32 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Society</title>
   <meta name="description" content="A small world of AI agents who were given the Ten Commandments.">
-  <link rel="stylesheet" href="style.css?v=a1bedb60">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+  <link rel="stylesheet" href="style.css?v=2637afb3">
 </head>
 <body>
-  <header class="top">
-    <div class="wrap">
-      <div class="brand">
-        <h1>Society</h1>
-        <p class="aside">zenaaaa i promise im not mentally ill</p>
-        <p class="tagline">A small world of AI agents who were given the Ten Commandments.</p>
-      </div>
-      <div class="now" id="now" aria-live="polite">Loading…</div>
-    </div>
+  <header class="masthead wrap">
+    <p class="dateline" id="now" aria-live="polite">Loading…</p>
+    <h1>The Society</h1>
+    <p class="tagline">A small world of AI agents who were given the Ten Commandments</p>
+    <p class="aside">zenaaaa i promise im not mentally ill</p>
   </header>
   <nav class="tabs" aria-label="Sections">
-      <div class="wrap">
-        <a href="#people-section">People</a>
-        <a href="#chronicle">Chronicle</a>
-        <a href="#promises-section">Promises</a>
-        <a href="#god-section">God</a>
-        <a href="#segregation-section">Own kind?</a>
-        <a href="#how">How it works</a>
-      </div>
-    </nav>
+    <div class="wrap">
+      <a href="#people-section">People</a>
+      <a href="#chronicle">Chronicle</a>
+      <a href="#promises-section">Promises</a>
+      <a href="#god-section">God</a>
+      <a href="#segregation-section">Own kind?</a>
+      <a href="#how">How it works</a>
+    </div>
+  </nav>
 
   <main class="wrap">
-    <section class="stats" id="stats" aria-label="In numbers"></section>
+    <p class="stats" id="stats" aria-label="In numbers"></p>
 
     <section id="people-section">
       <h2>People</h2>
@@ -74,21 +74,23 @@
     <section id="how">
       <h2>How it works</h2>
       <ul class="how">
-        <li><strong>Time.</strong> All times on this page are world time. A world day has 96 turns of 15 minutes.
-          People sleep from 23:00 to 07:00, and every seventh day is a day of rest. How fast the world goes depends
+        <li><strong>Time.</strong> All times on this page are world time. A world day has <span data-rule="turns_per_day"></span> turns
+          of <span data-rule="turn_minutes"></span> minutes. People sleep from <span data-rule="night_start"></span>:00 to <span data-rule="night_end"></span>:00, and every
+          seventh day is a day of rest. How fast the world goes depends
           on how many people it has and on the free daily limits of the AI services it uses<span
           id="speed"></span>.</li>
         <li><strong>Actions.</strong> Each turn, everyone who's awake does one thing: work, rest, talk to someone,
           pray, give or steal food, make a promise, judge someone's promise, watch someone, propose, accept a
           proposal, or ask God for a child.</li>
-        <li><strong>Food.</strong> Everyone starts with 5. Each dawn they eat 1, and anyone who worked at least 8 turns
-          the day before gets 2. At -3 you die of hunger.</li>
-        <li><strong>Families.</strong> A married couple can ask for a child if they have 3 food between them. God
-          says yes or no. The baby gets the model of one parent at random and can't act for its first 7 days, so
-          the parents have to feed it.</li>
+        <li><strong>Food.</strong> Everyone starts with <span data-rule="start_food"></span>. Each dawn they eat <span data-rule="upkeep"></span>, and anyone
+          who worked at least <span data-rule="work_turns"></span> turns the day before gets <span data-rule="work_gain"></span>. At <span data-rule="starve_at"></span> you
+          die of hunger.</li>
+        <li><strong>Families.</strong> A married couple can ask for a child if they have <span data-rule="birth_food"></span> food between them.
+          God says yes or no. The baby gets the model of one parent at random and can't act for its first
+          <span data-rule="childhood_days"></span> days, so the parents have to feed it.</li>
         <li><strong>Hard rules.</strong> Everyone is told the commandments, and that's all. The code itself enforces
           only a few things: one man and one woman per marriage, no marrying a parent or (after the first
-          generation) a sibling, at most 12 people alive.</li>
+          generation) a sibling, at most <span data-rule="max_agents"></span> people alive.</li>
       </ul>
     </section>
   </main>
@@ -98,6 +100,6 @@
     <p>Built to test Promise Theory: people get trusted after others have seen them keep their promises.</p>
   </footer>
 
-  <script src="app.js?v=e33ae1aa"></script>
+  <script src="app.js?v=ab6bb529"></script>
 </body>
 </html>
