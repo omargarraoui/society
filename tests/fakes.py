@@ -1,3 +1,6 @@
+import config
+
+
 class FakeK8s:
     """Stands in for the k8s API: keeps the last status written for each agent and what was created."""
 
@@ -11,3 +14,8 @@ class FakeK8s:
     def create_namespaced_custom_object(self, body, **_):
         self.created.append(body)
         return body
+
+
+def at(day, hour):
+    """The tick of a world day (1-based) and hour, whatever the length of a turn."""
+    return (day - 1) * config.TICKS_PER_DAY + hour * config.TICKS_PER_DAY // 24

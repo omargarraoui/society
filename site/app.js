@@ -100,6 +100,7 @@ function renderNow() {
     data.paused && el("span", { class: "pill paused" }, "Paused"),
     el("br"), `Page updated ${minutesAgo < 60 ? `${minutesAgo} min` : `${Math.round(minutesAgo / 60)} h`} ago`,
     " (it refreshes every 10 minutes)"));
+  for (const span of document.querySelectorAll("[data-rule]")) span.textContent = data.rules[span.dataset.rule];
   const realMinutesPerWorldHour = Math.round(60 / data.speed);
   document.getElementById("speed").textContent = `: right now about ${data.speed.toFixed(1)} world days pass in `
     + `one real day, so a world hour lasts about ${realMinutesPerWorldHour} real minutes`;

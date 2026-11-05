@@ -15,18 +15,19 @@ def pause(speed):
 
 def test_two_groq_agents_are_limited_by_tokens():
     # Budget: min(1000 requests, 200000 / 790 = 253.2 turns) * 0.9 = 227.8 turns per real day.
-    # Turns per world day: 2 agents * 64 day ticks + 32 night slots = 160.
+    # Turns per world day: 2 agents * 16 day ticks + 8 night slots = 40.
     speed = world_days_per_day(Counter(groq=2), {"groq": 790})
-    assert speed == pytest.approx(227.85 / 160, rel=1e-3)
+    assert speed == pytest.approx(227.85 / 40, rel=1e-3)
+    # The same real wait per turn as with 15-minute turns: a turn costs the same, it just covers an hour.
     assert pause(speed) == pytest.approx(632, abs=1)
 
 
 def test_the_slowest_provider_sets_the_pace():
-    # Each model: 4*64 + 32*4/12 = 266.7 turns per world day.
-    # groq budget 227.8 -> 0.854; gemini 500 * 0.9 = 450 -> 1.69; cloudflare 200 * 0.9 = 180 -> 0.675.
+    # Each model: 4*16 + 8*4/12 = 66.67 turns per world day.
+    # groq budget 227.8 -> 3.42; gemini 500 * 0.9 = 450 -> 6.75; cloudflare 200 * 0.9 = 180 -> 2.7.
     speed = world_days_per_day(Counter(groq=4, gemini=4, cloudflare=4), {"groq": 790, "gemini": None,
                                                                         "cloudflare": None})
-    assert speed == pytest.approx(180 / 266.67, rel=1e-3)
+    assert speed == pytest.approx(180 / 66.67, rel=1e-3)
 
 
 def test_speed_never_exceeds_the_cap(monkeypatch):

@@ -17,8 +17,10 @@ COMMANDMENTS = [
     "You shall not covet what belongs to your neighbor.",
 ]
 
-# --- Tempo del mondo: 1 tick = 15 minuti di orologio del mondo ---
-TICKS_PER_DAY = 96
+# --- Tempo del mondo: 1 tick = 1 ora del mondo (deciso il 5/11/2026; prima 15 minuti) ---
+# Ogni agente sveglio fa un turno per tick: 16 turni al giorno invece di 64, quindi con le stesse quote
+# i giorni del mondo (Dio, cibo, nascite, crescita) passano circa 4 volte piu' in fretta.
+TICKS_PER_DAY = 24
 NIGHT_START_HOUR = 23
 NIGHT_END_HOUR = 7
 NIGHT_AWAKE_PROB = 0.10   # probabilita' per agente di restare sveglio di notte
@@ -42,7 +44,7 @@ MAX_AGENTS = 12
 START_FOOD = 5
 UPKEEP_PER_DAY = 1
 WORK_GAIN = 2
-WORK_TURNS_FOR_FOOD = 8   # turni di lavoro del giorno prima per ricevere WORK_GAIN all'alba (2 ore del mondo)
+WORK_TURNS_FOR_FOOD = 2   # turni di lavoro del giorno prima per ricevere WORK_GAIN all'alba (2 ore del mondo)
 STARVE_BELOW = -2         # sotto questa soglia di cibo l'agente muore
 MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
 FOOD_FROM_EACH_PARENT = 1  # alla nascita: il figlio parte con 2

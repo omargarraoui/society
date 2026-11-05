@@ -60,6 +60,13 @@ def snapshot(world, db, agents, now, speed):
         "world": world, "updated": now, "tick": tick, "paused": db.get("paused", False), "speed": speed,
         "calendar": {"ticks_per_day": config.TICKS_PER_DAY, "days_per_week": config.DAYS_PER_WEEK,
                      "rest_day": config.REST_DAY},
+        # The numbers in the page's "How it works", so the text follows config.
+        "rules": {"turns_per_day": config.TICKS_PER_DAY, "turn_minutes": 24 * 60 // config.TICKS_PER_DAY,
+                  "night_start": config.NIGHT_START_HOUR, "night_end": f"{config.NIGHT_END_HOUR:02d}",
+                  "start_food": config.START_FOOD, "upkeep": config.UPKEEP_PER_DAY,
+                  "work_turns": config.WORK_TURNS_FOR_FOOD, "work_gain": config.WORK_GAIN,
+                  "starve_at": config.STARVE_BELOW - 1, "birth_food": config.MIN_FOOD_FOR_BIRTH,
+                  "childhood_days": config.CHILDHOOD_DAYS, "max_agents": config.MAX_AGENTS},
         "people": people,
         "feed": feed,
         "totals": dict(totals),

@@ -53,3 +53,8 @@ def test_assets_get_a_version_that_changes_with_their_content():
     one = versioned(index, {"app.js": b"a", "style.css": b"s"})
     assert one == '<link href="style.css?v=043a7187"><script src="app.js?v=ca978112"></script>'
     assert versioned(index, {"app.js": b"b", "style.css": b"s"}) != one
+
+
+def test_the_page_rules_come_from_config(tmp_path):
+    rules = world(tmp_path)["rules"]
+    assert (rules["turns_per_day"], rules["turn_minutes"], rules["work_turns"], rules["starve_at"]) == (24, 60, 2, -3)

@@ -1,12 +1,13 @@
 import random
 
 import pytest
+from fakes import at
 
 from db import DB
 from world import awake, invalid_reason, mock_action, mock_brain, observed, pick
 
 NAMES = ["adam", "eve"]
-NOON = 48
+NOON = at(1, 12)
 MIDNIGHT = 0
 PROMISE = {"metadata": {"name": "p"}, "spec": {"refrains": "steal", "tick": 0}}
 
@@ -154,33 +155,33 @@ def test_mock_never_assesses_a_promise_it_cannot_check(tmp_path):
 
 def test_working_on_the_day_of_rest_breaks_the_rest_promise(tmp_path):
     db = DB(str(tmp_path / "t.db"))
-    for tick, kind in [(5 * 96 + 40, "work"), (6 * 96 + 40, "work"), (6 * 96 + 41, "rest"), (13 * 96 + 40, "work")]:
+    for tick, kind in [(at(6, 10), "work"), (at(7, 10), "work"), (at(7, 11), "rest"), (at(14, 10), "work")]:
         db.set("tick", tick)
         db.log(kind, "eve")
     # Day 6 is a normal day; days 7 and 14 are days of rest: 2 violations.
     assert db.violations("eve", "work_on_day_of_rest", since_tick=0) == 2
-    assert db.violations("eve", "work_on_day_of_rest", since_tick=7 * 96) == 1
+    assert db.violations("eve", "work_on_day_of_rest", since_tick=at(8, 0)) == 1
 
 
 def test_observe_shows_recent_actions_without_prayers_or_words(tmp_path):
     db = DB(str(tmp_path / "t.db"))
-    log = [(30, "work", {}), (31, "pray", {"message": "secret"}), (32, "speak", {"target": "adam", "message": "hi"}),
-           (33, "steal", {"target": "adam"})]
+    log = [(at(1, 8), "work", {}), (at(1, 9), "pray", {"message": "secret"}),
+           (at(1, 10), "speak", {"target": "adam", "message": "hi"}), (at(1, 11), "steal", {"target": "adam"})]
     for tick, kind, data in log:
         db.set("tick", tick)
         db.log(kind, "eve", **data)
-    assert observed(db, "eve", tick=40) == [
-        {"tick": 30, "kind": "work"}, {"tick": 32, "kind": "speak", "target": "adam"},
-        {"tick": 33, "kind": "steal", "target": "adam"}]
+    assert observed(db, "eve", tick=at(1, 12)) == [
+        {"tick": at(1, 8), "kind": "work"}, {"tick": at(1, 10), "kind": "speak", "target": "adam"},
+        {"tick": at(1, 11), "kind": "steal", "target": "adam"}]
 
 
 def test_observe_shows_at_most_the_limit_and_nothing_older_than_yesterday(tmp_path):
     db = DB(str(tmp_path / "t.db"))
-    for tick in [10, *range(96 + 30, 96 + 30 + 12)]:  # tick 10 is day 1; the rest are day 2
+    for tick in [at(1, 2), *range(at(2, 6), at(2, 6) + 12)]:  # one turn on day 1, twelve on day 2
         db.set("tick", tick)
         db.log("work", "eve")
-    seen = observed(db, "eve", tick=2 * 96 + 30)  # day 3: yesterday = day 2
-    assert [s["tick"] for s in seen] == list(range(96 + 34, 96 + 42))
+    seen = observed(db, "eve", tick=at(3, 6))  # day 3: yesterday = day 2
+    assert [s["tick"] for s in seen] == list(range(at(2, 10), at(2, 18)))
 
 
 def test_mock_never_gives_food_it_does_not_have(tmp_path):

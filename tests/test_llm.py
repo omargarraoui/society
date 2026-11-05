@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+from fakes import at
 
 import config
 from db import DB, quota_day
@@ -23,17 +24,17 @@ def event(tick, kind, agent, **data):
 
 def test_clock():
     assert clock(0) == "week 1, day 1, 00:00"
-    assert clock(28) == "week 1, day 1, 07:00"
-    assert clock(96 + 49) == "week 1, day 2, 12:15"
-    assert clock(6 * 96 + 40) == "week 1, day 7, the day of rest, 10:00"
-    assert clock(7 * 96) == "week 2, day 1, 00:00"
+    assert clock(at(1, 7)) == "week 1, day 1, 07:00"
+    assert clock(at(2, 12)) == "week 1, day 2, 12:00"
+    assert clock(at(7, 10)) == "week 1, day 7, the day of rest, 10:00"
+    assert clock(at(8, 0)) == "week 2, day 1, 00:00"
 
 
 def test_describe_from_the_agent_point_of_view():
-    said = describe(event(30, "speak", "eve", target="adam", message="Hi"), "adam")
-    judged = describe(event(31, "assess", "adam", target="eve", kept=False), "adam")
-    assert said == 'Week 1, day 1, 07:30: Eve said to you: "Hi"'
-    assert judged == "Week 1, day 1, 07:45: you judged the promise of Eve (broken)"
+    said = describe(event(at(1, 8), "speak", "eve", target="adam", message="Hi"), "adam")
+    judged = describe(event(at(1, 9), "assess", "adam", target="eve", kept=False), "adam")
+    assert said == 'Week 1, day 1, 08:00: Eve said to you: "Hi"'
+    assert judged == "Week 1, day 1, 09:00: you judged the promise of Eve (broken)"
 
 
 def test_prompt_never_reveals_model_or_group():
@@ -100,8 +101,8 @@ def test_parse_drops_fields_the_action_does_not_use():
 
 
 def test_the_observer_sees_what_was_seen_and_the_observed_only_that_it_happened():
-    e = event(40, "observe", "adam", target="eve", saw=[{"tick": 30, "kind": "work"},
-                                                       {"tick": 33, "kind": "steal", "target": "adam"}])
-    assert describe(e, "adam") == ("Week 1, day 1, 10:00: you watched Eve: week 1, day 1, 07:30 worked; "
-                                   "week 1, day 1, 08:15 stole food from you")
+    e = event(at(1, 10), "observe", "adam", target="eve", saw=[{"tick": at(1, 8), "kind": "work"},
+                                                              {"tick": at(1, 9), "kind": "steal", "target": "adam"}])
+    assert describe(e, "adam") == ("Week 1, day 1, 10:00: you watched Eve: week 1, day 1, 08:00 worked; "
+                                   "week 1, day 1, 09:00 stole food from you")
     assert describe(e, "eve") == "Week 1, day 1, 10:00: Adam watched you"
