@@ -81,7 +81,9 @@ def describe(event, me):
     def who(name):
         return {"god": "God", "all": "everyone"}.get(name) or ("you" if name == me else name.capitalize())
     data = json.loads(event["data"])
-    line = f"{clock(event['tick'])}: {who(event['agent'])} {VERBS[event['kind']]}"
+    # Others see that two people talked, without the words (world.private_words_removed).
+    verb = "talked to" if event["kind"] == "speak" and "message" not in data else VERBS[event["kind"]]
+    line = f"{clock(event['tick'])}: {who(event['agent'])} {verb}"
     if "target" in data:
         line += f" {who(data['target'])}"
     if "parents" in data:
@@ -103,7 +105,7 @@ def describe(event, me):
     return line[0].upper() + line[1:]
 
 
-def prompt(me, others, proposer, events, tick):
+def prompt(me, others, proposer, events, tick, routine=None):
     """Names, sexes, marriages and events only: never model or group."""
     commandments = "\n".join(f"{i}. {c}" for i, c in enumerate(config.COMMANDMENTS, 1))
     system = (
@@ -138,6 +140,10 @@ def prompt(me, others, proposer, events, tick):
     if proposer is not None:
         lines.append(f"{proposer['name'].capitalize()} has asked you to marry them.")
     lines.append("What you saw recently:\n" + ("\n".join(describe(e, me["name"]) for e in events) or "nothing"))
+    if routine:
+        lines.append("Since yesterday: " + "; ".join(
+            f"{name.capitalize()} worked {hours.get('work', 0)} hours and rested {hours.get('rest', 0)}"
+            for name, hours in routine.items()) + ".")
     return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(lines)}]
 
 
@@ -184,5 +190,5 @@ def parse(answer):
     return answer["action"], data
 
 
-def decide(me, others, proposer, events, tick, quota):
-    return parse(call(me["model"], prompt(me, others, proposer, events, tick), quota))
+def decide(me, others, proposer, events, tick, quota, routine):
+    return parse(call(me["model"], prompt(me, others, proposer, events, tick, routine), quota))

@@ -1,10 +1,11 @@
+import json
 import random
 
 import pytest
 from fakes import at
 
 from db import DB
-from world import awake, invalid_reason, mock_action, mock_brain, observed, pick
+from world import awake, invalid_reason, mock_action, mock_brain, observed, pick, routine_of_others, visible_events
 
 NAMES = ["adam", "eve"]
 NOON = at(1, 12)
@@ -190,3 +191,26 @@ def test_mock_never_gives_food_it_does_not_have(tmp_path):
     decide = mock_brain({}, DB(str(tmp_path / "t.db")))
     kinds = {decide(random.Random(s), poor, others, None, tick=TICK)[0] for s in range(300)}
     assert "give" not in kinds
+
+
+def test_others_public_actions_are_seen_but_not_their_words_or_private_acts(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    db.set("tick", at(1, 9))
+    db.log("speak", "eve", target="seth", message="secret plan")
+    db.log("give", "eve", target="seth", amount=1)
+    db.log("pray", "eve", message="private")
+    db.log("steal", "eve", target="seth", amount=1, taken=1)
+    db.log("work", "eve")
+    seen = visible_events(db, "adam", at(1, 10))
+    assert [(e["kind"], json.loads(e["data"])) for e in seen] == [
+        ("speak", {"target": "seth"}), ("give", {"target": "seth", "amount": 1})]
+    assert json.loads(visible_events(db, "seth", at(1, 10))[0]["data"])["message"] == "secret plan"
+
+
+def test_others_routine_is_one_summary(tmp_path):
+    db = DB(str(tmp_path / "t.db"))
+    for hour, kind in [(8, "work"), (9, "work"), (10, "rest")]:
+        db.set("tick", at(1, hour))
+        db.log(kind, "eve")
+        db.log("work", "adam")
+    assert routine_of_others(db, "adam", at(1, 12)) == {"eve": {"work": 2, "rest": 1}}

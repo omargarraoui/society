@@ -61,8 +61,10 @@ ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
 GOD_EVENTS = ["revelation", "appoint", "sentence", "pardon", "penalty", "child_denied"]
 # Routine e servizio: restano fuori dagli avvisi live su Telegram e dalla cronaca pubblica.
 ROUTINE_EVENTS = ["work", "rest", "skip", "invalid"]
-# Eventi che vedono tutti, non solo chi li fa o li subisce.
-PUBLIC_EVENTS = ["starve", "birth"]
+# Eventi che vedono tutti, non solo chi li fa o li subisce (deciso il 5/11/2026: prima nessuno vedeva gli altri e
+# Adam ed Eve non si sono mai parlati). Di "speak" gli altri vedono chi parla con chi, non le parole.
+# Restano privati: preghiere, furti (li vede la vittima), osservazioni, giudizi, richieste di figli.
+PUBLIC_EVENTS = ["starve", "birth", "speak", "give", "accept_marriage", "petition", "promise"]
 # Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.
 OBSERVE_LIMIT = 8
 MAX_MESSAGE_CHARS = 300

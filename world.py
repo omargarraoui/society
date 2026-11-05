@@ -7,6 +7,7 @@
 import argparse
 import datetime
 import functools
+import json
 import os
 import random
 import time
@@ -97,7 +98,7 @@ def mock_brain(bias, db):
 
 
 def visible_events(db, name, tick):
-    """What the agent did or had done to it since the start of yesterday."""
+    """What the agent did or had done to it since the start of yesterday, plus what anyone did in public."""
     since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
     kinds = [*config.ACTIONS, *config.GOD_EVENTS]
     marks = ",".join("?" * len(kinds))
@@ -106,7 +107,26 @@ def visible_events(db, name, tick):
                 f"(kind in ({marks}) and (agent=? or json_extract(data, '$.target') in (?, 'all')))) "
                 "order by id desc limit 15",
                 (since, *config.PUBLIC_EVENTS, *kinds, name, name))
-    return rows[::-1]
+    return [private_words_removed(dict(r), name) for r in rows[::-1]]
+
+
+def private_words_removed(event, name):
+    """Others see that two people talked, not what they said."""
+    data = json.loads(event["data"])
+    if event["kind"] == "speak" and name not in (event["agent"], data.get("target")):
+        event["data"] = json.dumps({k: v for k, v in data.items() if k != "message"})
+    return event
+
+
+def routine_of_others(db, name, tick):
+    """Hours each other person worked and rested since the start of yesterday: one line, not one per turn."""
+    since = (tick // config.TICKS_PER_DAY - 1) * config.TICKS_PER_DAY
+    rows = db.q("select agent, kind, count(*) as n from events where tick>=? and agent!=? and kind in ('work', 'rest') "
+                "group by agent, kind order by agent", (since, name))
+    routine = {}
+    for r in rows:
+        routine.setdefault(r["agent"], {})[r["kind"]] = r["n"]
+    return routine
 
 
 def observed(db, name, tick):
@@ -122,7 +142,8 @@ def observed(db, name, tick):
 
 def llm_brain(db, quota):
     def decide(rng, me, others, proposer, tick):
-        return llm.decide(me, others, proposer, visible_events(db, me["name"], tick), tick, quota)
+        return llm.decide(me, others, proposer, visible_events(db, me["name"], tick), tick, quota,
+                          routine_of_others(db, me["name"], tick))
     return decide
 
 
