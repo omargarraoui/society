@@ -40,6 +40,7 @@ RULES = """Each turn you choose exactly one action:
 - accept_marriage: accept the proposal target made to you.
 - observe: watch target to learn what they did since yesterday (not their words or prayers).
   They will know you watched them.
+- request_child: ask God for a child with your spouse. God answers at dawn.
 - petition: only the representative: carry the people's requests to God (message).
 - assess: judge whether target has kept one of their promises. Set promise to its [id] and kept to true or false.
 Unused fields must be null."""
@@ -49,7 +50,8 @@ VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "pra
          "accept_marriage": "accepted marriage with", "assess": "judged the promise of", "observe": "watched",
          "petition": "petitioned God", "revelation": "said to", "appoint": "appointed as representative",
          "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on",
-         "starve": "died of hunger"}
+         "starve": "died of hunger", "request_child": "asked God for a child with", "birth": "was born",
+         "child_denied": "refused a child to"}
 
 
 class Unavailable(Exception):
@@ -78,6 +80,8 @@ def describe(event, me):
     line = f"{clock(event['tick'])}: {who(event['agent'])} {VERBS[event['kind']]}"
     if "target" in data:
         line += f" {who(data['target'])}"
+    if "parents" in data:
+        line += " to " + " and ".join(who(p) for p in data["parents"])
     if "amount" in data:
         line += f" ({data.get('taken', data['amount'])} food)"
     if "penalty" in data:
@@ -107,6 +111,8 @@ def prompt(me, others, proposer, events, tick):
     people = "\n".join(
         f"- {o['name'].capitalize()}, {'man' if o['sex'] == 'M' else 'woman'}"
         + (f", married to {'you' if o['spouse'] == me['name'] else o['spouse'].capitalize()}" if o["spouse"] else "")
+        + (f", child of {' and '.join('you' if p == me['name'] else p.capitalize() for p in o['parents'])}"
+           if o["parents"] else "")
         + (f", the {o['role']}" if o["role"] else "")
         + (", in exile" if o["exiled_until"] > tick else "")
         + "".join(f", warned by God: {w}" for w in o["warnings"]) + "".join(f", marked by God: {m}" for m in o["marks"])
@@ -118,6 +124,8 @@ def prompt(me, others, proposer, events, tick):
               f"{config.WORK_TURNS_FOR_FOOD} turns the day before also earns {config.WORK_GAIN}. "
               f"Below {config.STARVE_BELOW} food you die of hunger.")
     lines = [f"It is {clock(tick)}.", f"People:\n{people}", mine, hunger]
+    if me["parents"]:
+        lines.append(f"Your parents: {' and '.join(p.capitalize() for p in me['parents'])}.")
     if me["role"]:
         lines.append(f"You are the {me['role']}: with petition you carry the people's requests to God.")
     if me["exiled_until"] > tick:

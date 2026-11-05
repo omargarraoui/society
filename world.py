@@ -13,6 +13,7 @@ from collections import Counter
 
 import kubernetes
 
+import births
 import config
 import food
 import god
@@ -124,10 +125,11 @@ def llm_brain(db, quota):
     return decide
 
 
-def invalid_reason(kind, data, me, agents, proposer, tick):
+def invalid_reason(kind, data, me, agents, proposer, tick, everyone):
     """None when the action is allowed. The code enforces the hard rules, not the LLM.
 
-    agents holds only the living, so the dead can be neither actors nor targets.
+    agents holds only the living, so the dead can be neither actors nor targets;
+    everyone includes the dead, whose names are never given again.
     """
     target = agents.get(data.get("target"))
     if kind not in config.ACTIONS:
@@ -150,6 +152,12 @@ def invalid_reason(kind, data, me, agents, proposer, tick):
         return "nothing said"
     if kind == "propose_marriage" and (me["spouse"] or target["spouse"] or me["sex"] == target["sex"]):
         return "marriage is between an unmarried man and an unmarried woman"
+    if kind == "propose_marriage" and not births.adult(target, tick):
+        return "target is a child"
+    if kind == "propose_marriage" and births.kin_forbids(me, target):
+        return "too close kin"
+    if kind == "request_child":
+        return births.why_no_child(me, agents, everyone, tick)
     if kind == "accept_marriage" and (proposer is None or proposer is not target):
         return "no pending proposal from target"
     if kind in ("give", "steal") and not (isinstance(data.get("amount"), int) and data["amount"] >= 1):
@@ -195,7 +203,7 @@ def run_tick(db, api, namespace, brain, god_turn=None):
         if god_turn is not None:
             god_turn(db, api, namespace, agents, tick)
     living = {n: a for n, a in agents.items() if a["alive"]}
-    for name in awake(sorted(living), tick, rng):
+    for name in awake(sorted(n for n, a in living.items() if births.adult(a, tick)), tick, rng):
         me = living[name]
         others = [a for a in living.values() if a["name"] != name]
         proposer = pending_proposer(db, me, living)
@@ -204,7 +212,7 @@ def run_tick(db, api, namespace, brain, god_turn=None):
         except llm.Unavailable as e:
             db.log("skip", name, reason=str(e))
             continue
-        reason = invalid_reason(kind, data, me, living, proposer, tick)
+        reason = invalid_reason(kind, data, me, living, proposer, tick, agents)
         if reason is not None:
             db.log("invalid", name, action=kind, reason=reason, **data)
             continue

@@ -15,7 +15,8 @@ DAY = 24 * 60 * 60
 
 def person(name, sex, role=None):
     return {"name": name, "sex": sex, "model": "groq", "spouse": None, "promises": [], "alive": True, "role": role,
-            "exiled_until": -1, "marks": [], "warnings": [], "food": 5}
+            "exiled_until": -1, "marks": [], "warnings": [], "food": 5, "children_banned_until": -1,
+            "parents": [], "born": None, "generation": 0}
 
 
 def world(tmp_path):
@@ -103,14 +104,14 @@ def test_god_sees_neither_model_nor_group(tmp_path):
 def test_exile_and_role_rules_for_agents():
     adam, eve = person("adam", "M"), person("eve", "F", role="representative")
     living = {"adam": adam, "eve": eve}
-    assert invalid_reason("petition", {"message": "Rain."}, adam, living, None, TICK) == \
+    assert invalid_reason("petition", {"message": "Rain."}, adam, living, None, TICK, living) == \
         "only the representative petitions"
-    assert invalid_reason("petition", {"message": "Rain."}, eve, living, None, TICK) is None
+    assert invalid_reason("petition", {"message": "Rain."}, eve, living, None, TICK, living) is None
     eve["exiled_until"] = TICK + 10
-    assert invalid_reason("speak", {"target": "eve", "message": "Hi"}, adam, living, None, TICK) == \
+    assert invalid_reason("speak", {"target": "eve", "message": "Hi"}, adam, living, None, TICK, living) == \
         "target is in exile"
-    assert invalid_reason("speak", {"target": "adam", "message": "Hi"}, eve, living, None, TICK) == "in exile"
-    assert invalid_reason("work", {}, eve, living, None, TICK) is None
+    assert invalid_reason("speak", {"target": "adam", "message": "Hi"}, eve, living, None, TICK, living) == "in exile"
+    assert invalid_reason("work", {}, eve, living, None, TICK, living) is None
 
 
 def test_agents_see_revelations_to_all_and_to_them_only(tmp_path):

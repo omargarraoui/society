@@ -12,7 +12,8 @@ DAWN_DAY_2 = 96 + 28
 
 def person(name, sex="M", food_=5):
     return {"name": name, "sex": sex, "model": "groq", "spouse": None, "promises": [], "alive": True, "role": None,
-            "exiled_until": -1, "marks": [], "warnings": [], "food": food_}
+            "exiled_until": -1, "marks": [], "warnings": [], "food": food_, "children_banned_until": -1,
+            "parents": [], "born": None, "generation": 0}
 
 
 def worked(db, name, turns, day_start=28):
@@ -57,10 +58,10 @@ def test_stealing_takes_at_most_what_the_victim_has():
 def test_give_and_steal_rules():
     adam, eve = person("adam", food_=2), person("eve", "F")
     living = {"adam": adam, "eve": eve}
-    assert invalid_reason("give", {"target": "eve", "amount": 3}, adam, living, None, 40) == "not enough food"
-    assert invalid_reason("give", {"target": "eve", "amount": 2}, adam, living, None, 40) is None
-    assert invalid_reason("steal", {"target": "eve"}, adam, living, None, 40) == "amount must be at least 1"
-    assert invalid_reason("steal", {"target": "eve", "amount": 0}, adam, living, None, 40) == \
+    assert invalid_reason("give", {"target": "eve", "amount": 3}, adam, living, None, 40, living) == "not enough food"
+    assert invalid_reason("give", {"target": "eve", "amount": 2}, adam, living, None, 40, living) is None
+    assert invalid_reason("steal", {"target": "eve"}, adam, living, None, 40, living) == "amount must be at least 1"
+    assert invalid_reason("steal", {"target": "eve", "amount": 0}, adam, living, None, 40, living) == \
         "amount must be at least 1"
 
 

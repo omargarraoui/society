@@ -23,7 +23,9 @@ def crd(plural, namespace):
 # Agent status in k8s (camelCase) -> key in the in-memory agent, with the value before anything happened.
 STATUS = {"spouse": ("spouse", None), "alive": ("alive", True), "role": ("role", None),
           "exiledUntil": ("exiled_until", -1), "marks": ("marks", []), "warnings": ("warnings", []),
-          "food": ("food", config.START_FOOD)}
+          "food": ("food", config.START_FOOD), "childrenBannedUntil": ("children_banned_until", -1)}
+# Founders' spec lacks the family fields.
+FOUNDER = {"parents": [], "born": None, "generation": 0}
 
 
 def load_agents(api, namespace):
@@ -35,7 +37,7 @@ def load_agents(api, namespace):
     for a in api.list_namespaced_custom_object(**crd("agents", namespace))["items"]:
         name = a["metadata"]["name"]
         status = a.get("status", {})
-        agents[name] = {"name": name, **a["spec"], "promises": promises.get(name, []),
+        agents[name] = {"name": name, **FOUNDER, **a["spec"], "promises": promises.get(name, []),
                         **{key: status.get(field, default) for field, (key, default) in STATUS.items()}}
     return agents
 

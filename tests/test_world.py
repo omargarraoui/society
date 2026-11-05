@@ -16,7 +16,8 @@ TICK = 40
 
 def agent(name, model, sex="M", promises=(PROMISE,), spouse=None, role=None, exiled_until=-1):
     return {"name": name, "model": model, "sex": sex, "promises": list(promises), "spouse": spouse, "alive": True,
-            "role": role, "exiled_until": exiled_until, "marks": [], "warnings": [], "food": 5}
+            "role": role, "exiled_until": exiled_until, "marks": [], "warnings": [], "food": 5,
+            "children_banned_until": -1, "parents": [], "born": None, "generation": 0}
 
 
 def test_everyone_is_awake_at_noon():
@@ -112,13 +113,14 @@ AGENTS = {"adam": ADAM, "eve": EVE, "seth": SETH}
     ("fly", {}, None, "unknown action"),
 ])
 def test_invalid_reason(kind, data, proposer, reason):
-    assert invalid_reason(kind, data, ADAM, AGENTS, proposer, TICK) == reason
+    assert invalid_reason(kind, data, ADAM, AGENTS, proposer, TICK, AGENTS) == reason
 
 
 def test_first_promise_is_valid():
     me = agent("adam", "groq", promises=())
     data = {"refrains": "steal", "message": "I will not steal."}
-    assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None, TICK) is None
+    living = {"adam": me, "eve": EVE}
+    assert invalid_reason("promise", data, me, living, None, TICK, living) is None
 
 
 def test_mock_only_produces_valid_actions(tmp_path):
@@ -126,8 +128,8 @@ def test_mock_only_produces_valid_actions(tmp_path):
     decide = mock_brain({}, DB(str(tmp_path / "t.db")))
     for seed in range(300):
         kind, data = decide(random.Random(seed), ADAM, others, EVE, tick=40)
-        assert invalid_reason(kind, data, ADAM, {a["name"]: a for a in [ADAM, *others]}, EVE, TICK) is None, (
-            kind, data)
+        living = {a["name"]: a for a in [ADAM, *others]}
+        assert invalid_reason(kind, data, ADAM, living, EVE, TICK, living) is None, (kind, data)
 
 
 @pytest.mark.parametrize("data, reason", [
@@ -139,7 +141,7 @@ def test_mock_only_produces_valid_actions(tmp_path):
 ])
 def test_free_promises_are_accepted(data, reason):
     me = agent("adam", "groq", promises=())
-    assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None, TICK) == reason
+    assert invalid_reason("promise", data, me, {"adam": me, "eve": EVE}, None, TICK, {"adam": me, "eve": EVE}) == reason
 
 
 def test_mock_never_assesses_a_promise_it_cannot_check(tmp_path):

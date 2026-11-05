@@ -4,8 +4,10 @@ Like the agents' actions, its answer passes through hard rules in code: only the
 config.PENALTIES, exile and death delayed by VETO_SECONDS (the user can pardon), and the world
 paused when a decision looks anomalous.
 """
+import random
 import time
 
+import births
 import config
 import llm
 from state import patch_status
@@ -13,7 +15,7 @@ from state import patch_status
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["revelations", "representative", "penalties"],
+    "required": ["revelations", "representative", "penalties", "children"],
     "properties": {
         "revelations": {"type": "array", "items": {
             "type": "object", "additionalProperties": False, "required": ["to", "message"],
@@ -23,13 +25,18 @@ SCHEMA = {
             "type": "object", "additionalProperties": False, "required": ["target", "penalty", "days", "reason"],
             "properties": {"target": {"type": "string"}, "penalty": {"type": "string", "enum": config.PENALTIES},
                            "days": {"type": ["integer", "null"]}, "reason": {"type": "string"}}}},
+        "children": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["parent", "approve", "reason"],
+            "properties": {"parent": {"type": "string"}, "approve": {"type": "boolean"},
+                           "reason": {"type": "string"}}}},
     },
 }
 
 INSTRUCTIONS = """Reply with JSON:
 - revelations: what you say, each to one person (their name) or to "all". An empty list is silence.
 - representative: the name of the person to appoint, or null to keep the current one.
-- penalties: each with target, penalty, days (exile only, otherwise null) and reason."""
+- penalties: each with target, penalty, days (exile only, otherwise null) and reason.
+- children: your answer to each request for a child since yesterday: the parent who asked, approve, reason."""
 
 
 def describe_person(agent, tick):
@@ -40,6 +47,10 @@ def describe_person(agent, tick):
         parts.append(f"the {agent['role']}")
     if agent["exiled_until"] > tick:
         parts.append(f"in exile until {llm.clock(agent['exiled_until'])}")
+    if agent["born"] is not None:
+        parents = " and ".join(p.capitalize() for p in agent["parents"])
+        parts.append(f"born {llm.clock(agent['born'])}, child of {parents}"
+                     + ("" if births.adult(agent, tick) else ", still a child"))
     parts += [f"warned: {w}" for w in agent["warnings"]] + [f"marked: {m}" for m in agent["marks"]]
     parts += [f'promised "{p["spec"]["body"]}"' + (" (broken by the record)" if p.get("status", {}).get("state")
                                                    == "broken" else "") for p in agent["promises"]]
@@ -60,7 +71,8 @@ def prompt(constitution, agents, tick, events, decisions):
 
 def record(db, tick):
     """Yesterday's prayers, petitions and wrongs, and God's own recent decisions."""
-    events = db.q("select tick, kind, agent, data from events where tick>=? and (kind in ('pray', 'petition', 'steal') "
+    events = db.q("select tick, kind, agent, data from events where tick>=? and (kind in ('pray', 'petition', "
+                  "'steal', 'request_child') "
                   "or (kind='assess' and json_extract(data, '$.kept')=0)) order by id",
                   (tick - config.TICKS_PER_DAY,))
     decisions = db.q("select kind, target, reason, status from decisions order by id desc limit 10")[::-1]
@@ -136,6 +148,34 @@ def apply_due(db, api, namespace, agents, tick, now):
             db.x("update decisions set status='moot' where id=?", (d["id"],))
 
 
+def answer_children(db, api, namespace, agents, tick, answers):
+    """God only approves or refuses: the code checks the couple again before anyone is born."""
+    living = {n: a for n, a in agents.items() if a["alive"]}
+    couples, newborns = set(), []
+    for c in answers:
+        parent = living.get(c["parent"].strip().lower())
+        asked = parent is not None and db.one(
+            "select count(*) as n from events where kind='request_child' and agent in (?, ?) and tick>=?",
+            (parent["name"], parent["spouse"], tick - config.TICKS_PER_DAY))["n"] > 0
+        if not asked:
+            db.log("invalid", "god", action="birth", reason="no request from this parent", answer=c)
+            continue
+        couple = frozenset((parent["name"], parent["spouse"]))
+        if not c["approve"]:
+            db.log("child_denied", "god", target=parent["name"], reason=c["reason"])
+            continue
+        # Today's newborns count for the 12-agent cap and take their names.
+        why = "one child per couple per day" if couple in couples else births.why_no_child(
+            parent, {**living, **dict.fromkeys(newborns)}, {**agents, **dict.fromkeys(newborns)}, tick)
+        if why is not None:
+            db.log("invalid", "god", action="birth", reason=why, answer=c)
+            continue
+        couples.add(couple)
+        newborns.append(births.birth(db, api, namespace, parent, living[parent["spouse"]],
+                                     {**agents, **dict.fromkeys(newborns)}, tick,
+                                     random.Random(f"{tick}:{parent['name']}")))
+
+
 def turn(db, api, namespace, agents, tick, quota, constitution):
     events, decisions = record(db, tick)
     try:
@@ -145,3 +185,4 @@ def turn(db, api, namespace, agents, tick, quota, constitution):
         db.log("skip", "god", reason=str(e))
         return
     apply(db, api, namespace, agents, tick, answer, time.time())
+    answer_children(db, api, namespace, agents, tick, answer["children"])

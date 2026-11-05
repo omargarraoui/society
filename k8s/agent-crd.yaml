@@ -33,6 +33,10 @@ spec:
                 sex: {type: string, enum: [M, F]}
                 model: {type: string, enum: [groq, gemini, cloudflare]}
                 group: {type: string}
+                # Founders have none of these: no parents, adults from the start, generation 0.
+                parents: {type: array, items: {type: string}}
+                born: {type: integer}
+                generation: {type: integer}
             status:
               type: object
               properties:
@@ -43,3 +47,4 @@ spec:
                 marks: {type: array, items: {type: string}}
                 warnings: {type: array, items: {type: string}}
                 food: {type: integer}
+                childrenBannedUntil: {type: integer}

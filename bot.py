@@ -60,7 +60,8 @@ def digest_text(world, db, since_id):
     lines = [f"Digest {world}, da {llm.clock(rows[0]['tick'])} a {llm.clock(rows[-1]['tick'])}",
              "Azioni: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common())]
     for r in rows:
-        if r["kind"] in ("promise", "accept_marriage", "assess", "petition", *config.GOD_EVENTS):
+        if r["kind"] in ("promise", "accept_marriage", "assess", "petition", "request_child", *config.GOD_EVENTS,
+                         *config.PUBLIC_EVENTS):
             lines.append(f"- {llm.describe(r, '')}")
     return "\n".join(lines), rows[-1]["id"]
 
@@ -74,6 +75,11 @@ def alert_texts(rows):
             texts.append(f"Matrimonio: {r['agent'].capitalize()} e {data['target'].capitalize()}")
         elif r["kind"] == "steal":
             texts.append(f"Furto: {r['agent'].capitalize()} ha rubato a {data['target'].capitalize()}")
+        elif r["kind"] == "birth":
+            parents = " e ".join(p.capitalize() for p in data["parents"])
+            texts.append(f"Nascita: {r['agent'].capitalize()} ({data['sex']}), figlio di {parents}")
+        elif r["kind"] == "child_denied":
+            texts.append(f"Dio ha rifiutato un figlio a {data['target'].capitalize()}: {data['reason']}")
         elif r["kind"] == "appoint":
             texts.append(f"Dio ha nominato rappresentante {data['target'].capitalize()}")
         elif r["kind"] == "sentence" and "decision" in data:

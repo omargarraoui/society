@@ -45,14 +45,16 @@ WORK_GAIN = 2
 WORK_TURNS_FOR_FOOD = 8   # turni di lavoro del giorno prima per ricevere WORK_GAIN all'alba (2 ore del mondo)
 STARVE_BELOW = -2         # sotto questa soglia di cibo l'agente muore
 MIN_FOOD_FOR_BIRTH = 3    # cibo combinato minimo della coppia
+FOOD_FROM_EACH_PARENT = 1  # alla nascita: il figlio parte con 2
+CHILDHOOD_DAYS = 7        # giorni del mondo in cui il figlio mangia ma non agisce
 
 # Elenco fisso: il codice rifiuta qualsiasi altra azione.
 ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
-           "propose_marriage", "accept_marriage", "assess", "observe", "petition"]
+           "propose_marriage", "accept_marriage", "assess", "observe", "petition", "request_child"]
 # Cio' che fa l'agente-Dio. Gli agenti lo vedono negli eventi, ma non possono farlo.
-GOD_EVENTS = ["revelation", "appoint", "sentence", "pardon", "penalty"]
+GOD_EVENTS = ["revelation", "appoint", "sentence", "pardon", "penalty", "child_denied"]
 # Eventi che vedono tutti, non solo chi li fa o li subisce.
-PUBLIC_EVENTS = ["starve"]
+PUBLIC_EVENTS = ["starve", "birth"]
 # Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.
 OBSERVE_LIMIT = 8
 MAX_MESSAGE_CHARS = 300
