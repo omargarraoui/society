@@ -18,7 +18,7 @@ const FILTER_OF = {
   give: "food", steal: "food", starve: "food",
 };
 const PAGE = 60;
-const LIVE_URL = "https://live.omargarraoui.com/events";
+const LIVE_URL = "https://omar-society.spaincentral.cloudapp.azure.com/events";
 const WIRE_LENGTH = 80;
 
 let data, people, filter = "all", shown = PAGE;

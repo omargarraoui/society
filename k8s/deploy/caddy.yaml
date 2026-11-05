@@ -1,6 +1,7 @@
-# The only service reachable from the internet: HTTPS for live.omargarraoui.com (certificate from Let's Encrypt,
-# renewed by Caddy), proxied to the read-only live mirror. Needs ports 80 and 443 open on the VM and a DNS A
-# record live.omargarraoui.com -> the VM's public IP.
+# The only service reachable from the internet: HTTPS (certificate from Let's Encrypt, renewed by Caddy) proxied
+# to the read-only live mirror. The host name is the free DNS label Azure gives the VM's public IP
+# (az network public-ip update --dns-name omar-society), so the user's own domain needs no extra record.
+# Needs ports 80 and 443 open on the VM.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,7 +9,7 @@ metadata:
   namespace: society-system
 data:
   Caddyfile: |
-    live.omargarraoui.com {
+    omar-society.spaincentral.cloudapp.azure.com {
       # flush_interval -1: pass each event through at once instead of buffering the stream.
       reverse_proxy society-live.society-system.svc.cluster.local:8080 {
         flush_interval -1

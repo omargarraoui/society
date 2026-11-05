@@ -132,6 +132,7 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
   - **Turni di 1 ora** (24 tick al giorno invece di 96): con le stesse quote i giorni del mondo passano circa 4 volte più in fretta. Lavoro per mangiare: 2 turni. **Mondo genesis ricominciato da zero** (era al giorno 1 e non era successo niente).
   - Telegram in tempo reale: ogni evento tranne lavoro, riposo e servizio, raggruppato per giro di controllo. Pagina aggiornata ogni 10 minuti.
   - Pagina rifatta in stile gazzetta (l'utente trovava il template a card da IA); frase per Zena sotto il titolo.
+- **Mirror live (5 novembre 2026):** `live.py` (sola lettura, Server-Sent Events) come container `live` nel pod, Caddy in un Deployment con le porte 80 e 443 della VM aperte su Azure. Indirizzo: **https://omar-society.spaincentral.cloudapp.azure.com/events**, il nome DNS gratuito di Azure sull'IP pubblico, perché l'utente non voleva aggiungere record al dominio del portfolio (gestito da IONOS). Il riquadro Live della pagina si collega lì; il servizio accetta solo l'origine https://omargarraoui.com e al massimo 100 spettatori.
 - Mancano: il README.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
