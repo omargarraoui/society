@@ -114,8 +114,10 @@ Un mondo = un namespace k8s (stato) + un file SQLite `worlds/<namespace>.db` (st
   - Costi: VM nelle 750 ore gratuite; disco P6 e IP pubblico forse gratis, altrimenti circa 14 USD al mese dai crediti. Da controllare in "Analisi costi" dopo 1-2 giorni (Azure aggiorna i costi in ritardo).
   - Immagine: `docker buildx build --platform linux/amd64 -t society:dev --output type=docker,dest=FILE .`, poi `scp` e `sudo k3s ctr images import FILE` sulla VM, poi `kubectl rollout restart deploy/society`.
   - Log: `ssh -i ~/.ssh/society_azure society@68.221.70.192 'sudo k3s kubectl -n society-system logs deploy/society -c world --tail 5'`
+  - Bot Telegram (5 novembre 2026): terzo container `bot` nel pod. `/stato`, `/pausa`, `/riprendi`; avvisi per matrimoni e furti, turni saltati al massimo una volta all'ora, digest alle 21 ora italiana. Risponde solo a `TELEGRAM_CHAT_ID`. Token e chat id stanno in `.env` e nel secret `society-keys`. `/annulla` e il veto arrivano con l'agente-Dio.
+  - Dashboard pubblica su GitHub Pages: decisa per dopo, con il modello di ogni agente visibile e tutte le parole, preghiere comprese.
   - Le quote sono contate nel cluster (`/data/quota.db`). Se un mondo con LLM gira anche sul Mac, i contatori si dividono e il passo adattivo sbaglia.
-- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), `rules.py` completo (parentela), l'agente-Dio, il bot Telegram e il README.
+- Mancano: il cibo come stato (oggi give e steal sono solo eventi), le nascite (e con loro l'eredità del modello, già decisa), `rules.py` completo (parentela), l'agente-Dio, il README e la dashboard pubblica.
 - Nota: kopf mette un finalizer sulle Promise per i timer. Per cancellare un namespace l'Operator deve essere acceso, altrimenti la cancellazione resta bloccata.
 
 Come si avvia (sviluppo):
