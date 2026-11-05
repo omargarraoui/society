@@ -42,7 +42,7 @@ function who(name) {
   if (name === "all") return el("span", { class: "who" }, "everyone");
   const person = people[name];
   return el("span", { class: "who", style: person ? modelVar(person.model) : "" },
-    el("span", { class: "dot", "aria-hidden": "true" }), cap(name));
+    el("span", { class: "mark", "aria-hidden": "true" }), cap(name));
 }
 
 function when(tick) {
@@ -94,12 +94,16 @@ function sentence(e) {
 function renderNow() {
   const t = when(data.tick);
   const minutesAgo = Math.max(0, Math.round((Date.now() - Date.parse(data.updated)) / 60000));
-  document.getElementById("now").replaceChildren(el("span", {},
-    "In the world it's ", el("strong", {}, `week ${t.week}, day ${t.weekday}, ${t.time}`),
-    t.rest && el("span", { class: "pill rest" }, "Day of rest"),
-    data.paused && el("span", { class: "pill paused" }, "Paused"),
-    el("br"), `Page updated ${minutesAgo < 60 ? `${minutesAgo} min` : `${Math.round(minutesAgo / 60)} h`} ago`,
-    " (it refreshes every 10 minutes)"));
+  const ago = minutesAgo < 60 ? `${minutesAgo} min` : `${Math.round(minutesAgo / 60)} h`;
+  const parts = [
+    `World week ${t.week}, day ${t.weekday}, ${t.time}`,
+    t.rest && el("span", { class: "flag" }, "Day of rest"),
+    data.paused && el("span", { class: "flag paused" }, "Paused"),
+    `Updated ${ago} ago`,
+  ].filter(Boolean);
+  document.getElementById("now").replaceChildren(
+    ...parts.flatMap((part, i) => (i ? [" · ", part] : [part])));
+  for (const span of document.querySelectorAll("[data-rule]")) span.textContent = data.rules[span.dataset.rule];
   const realMinutesPerWorldHour = Math.round(60 / data.speed);
   document.getElementById("speed").textContent = `: right now about ${data.speed.toFixed(1)} world days pass in `
     + `one real day, so a world hour lasts about ${realMinutesPerWorldHour} real minutes`;
@@ -118,8 +122,10 @@ function renderStats() {
     [data.totals.birth || 0, "births"],
     [data.people.length - alive.length, "deaths"],
   ];
-  document.getElementById("stats").replaceChildren(
-    ...tiles.map(([n, label]) => el("div", { class: "stat" }, el("b", {}, String(n)), el("span", {}, label))));
+  document.getElementById("stats").replaceChildren(...tiles.flatMap(([n, label], i) => [
+    // The spaces around the separator are where a narrow screen can wrap the line.
+    ...(i ? [" ", el("span", { class: "sep", "aria-hidden": "true" }, "|"), " "] : []),
+    el("span", { class: "stat" }, el("b", {}, String(n)), label)]));
 }
 
 function renderPeople() {
@@ -138,8 +144,8 @@ function renderPeople() {
       ...p.warnings.map((w) => el("span", { class: "tag bad", title: w }, "Warned")),
       ...p.marks.map((m) => el("span", { class: "tag bad", title: m }, "Marked")),
     ];
-    return el("article", { class: `card person${p.alive ? "" : " dead"}`, style: modelVar(p.model) },
-      el("h3", {}, cap(p.name), el("span", { class: "model" }, MODELS[p.model]), ...tags),
+    return el("article", { class: `person${p.alive ? "" : " dead"}` },
+      el("h3", {}, who(p.name), el("span", { class: "model" }, MODELS[p.model]), ...tags),
       el("ul", { class: "facts" }, ...facts.map((f) => el("li", {}, f))));
   }));
 }
@@ -181,8 +187,9 @@ function renderPromises() {
         ? el("span", { class: "ko" }, `Record: broken ${p.violations} ${p.violations === 1 ? "time" : "times"}`)
         : el("span", { class: "ok" }, "Record: kept so far"))
       : el("span", {}, "The code can't check this one");
-    return el("article", { class: "card promise" },
-      el("div", {}, who(p.by), el("span", { class: "model" }, ` ${when(p.tick).time}, week ${when(p.tick).week} day ${when(p.tick).weekday}`)),
+    const t = when(p.tick);
+    return el("article", { class: "promise" },
+      el("div", {}, who(p.by), el("span", { class: "model" }, `  week ${t.week}, day ${t.weekday}, ${t.time}`)),
       el("p", { class: "body", lang: "en" }, `“${p.body}”`),
       el("div", { class: "verdicts" }, record,
         el("span", {}, `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×`)));
@@ -194,17 +201,20 @@ function renderGod() {
   const decisions = data.decisions.slice(-8).reverse();
   const representative = data.people.find((p) => p.role === "representative");
   const status = { applied: "done", pending: "waiting 24 h", vetoed: "cancelled", moot: "no longer applies" };
+  const day = (tick) => { const t = when(tick); return `week ${t.week}, day ${t.weekday}`; };
   document.getElementById("god").replaceChildren(el("div", { class: "god-grid" },
-    el("div", { class: "card" }, el("h3", {}, "Latest words"),
-      words.length ? el("ul", {}, ...words.map((e) => el("li", {}, "To ", who(e.data.target), quote(e.data.message))))
+    el("div", { class: "god-words" },
+      words.length ? words.map((e) => el("blockquote", { lang: "en" }, `“${e.data.message}”`,
+        el("footer", {}, "To ", e.data.target === "all" ? "everyone" : cap(e.data.target), `, ${day(e.tick)}`)))
         : el("p", { class: "empty" }, "God hasn't spoken yet.")),
-    el("div", { class: "card" }, el("h3", {}, "Penalties"),
-      decisions.length ? el("ul", {}, ...decisions.map((d) => el("li", {}, who(d.target),
-        `: ${PENALTIES[d.kind]} (${status[d.status]})`, quote(d.reason))))
-        : el("p", { class: "empty" }, "No penalties so far.")),
-    el("div", { class: "card" }, el("h3", {}, "Representative"),
-      el("p", {}, representative ? [who(representative.name), " speaks to God for everyone."]
-        : "Nobody yet. God picks one at dawn."))));
+    el("div", { class: "god-side" },
+      el("div", {}, el("h3", {}, "Representative"),
+        el("p", {}, representative ? [who(representative.name), " speaks to God for everyone."]
+          : "Nobody yet. God picks one at dawn.")),
+      el("div", {}, el("h3", {}, "Penalties"),
+        decisions.length ? el("ul", {}, ...decisions.map((d) => el("li", {}, who(d.target),
+          `: ${PENALTIES[d.kind]} (${status[d.status]})`, quote(d.reason))))
+          : el("p", { class: "empty" }, "None so far.")))));
 }
 
 function renderSegregation() {
@@ -252,7 +262,7 @@ function renderSegregation() {
     ...Object.entries(s.ratio).map(([pair, v]) => el("tr", {},
       el("td", {}, pair.split("->").map((g) => MODELS[g]).join(" → ")), el("td", {}, v.toFixed(2)))));
   target.replaceChildren(
-    el("div", { class: "card" },
+    el("div", {},
       el("h3", { class: "viz-title" }, "Choosing their own model (talking, giving, proposing, judging, watching)"),
       el("div", { class: "viz" }, ...rows),
       el("p", { class: "axis-note" }, "Dashed line = 1×, what random choice would give. Right of it = own kind preferred.")),
