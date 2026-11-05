@@ -1,0 +1,27 @@
+# Runs N world ticks back to back, with the same code, models and God as the always-on world: only the real
+# time between turns changes, which the agents never see. Pause the world first (/pausa or the paused flag)
+# so two processes never tick the same world, and resume it afterwards. The world's pacing then spends what
+# is left of today's quota evenly until each provider's reset, so nobody misses turns later.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: turbo
+  namespace: society-system
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: society
+      restartPolicy: Never
+      volumes:
+        - name: worlds
+          persistentVolumeClaim:
+            claimName: worlds
+      containers:
+        - name: turbo
+          image: society:dev
+          imagePullPolicy: Never
+          command: [python, world.py, tick, genesis, --brain, llm, --ticks, "120"]  # 120 ticks = 5 world days
+          envFrom:
+            - secretRef: {name: society-keys}
+          volumeMounts: [{name: worlds, mountPath: /data}]

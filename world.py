@@ -5,6 +5,7 @@
   python world.py run NAMESPACE   # LLM brain, forever, paced by the free quotas
 """
 import argparse
+import datetime
 import functools
 import os
 import random
@@ -18,7 +19,7 @@ import config
 import food
 import god
 import llm
-from db import DB, quota_db_path, world_db_path
+from db import DB, quota_db_path, seconds_to_reset, world_db_path
 from state import GROUP, crd, load_agents, load_k8s_config, patch_status
 
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
@@ -254,24 +255,36 @@ def acting_models(agents, tick):
     return Counter(a["model"] for a in agents.values() if a["alive"] and births.adult(a, tick))
 
 
-def world_days_per_day(model_counts, tokens_per_turn):
-    """How many world days fit in one real day of free quota, capped at MAX_SPEED.
+def turns_left(quota, model):
+    """Turns still affordable today within QUOTA_SHARE of the provider's free limits."""
+    p = config.PROVIDERS[model]
+    requests, tokens = quota.usage(model)
+    left = config.QUOTA_SHARE * p["daily_requests"] - requests
+    if p["daily_tokens"] is not None:
+        left = min(left, (config.QUOTA_SHARE * p["daily_tokens"] - tokens) / turn_tokens(quota, model))
+    return max(left, 0.0)
 
-    Assumes this world is the only one using the quota.
+
+def world_days_per_day(model_counts, turns_left_today, seconds_left_today):
+    """How many world days per real day spend what is left of each provider's quota evenly until its reset,
+    capped at MAX_SPEED. So a burst of turns (a fast-forward) slows the rest of the day down instead of
+    running out of quota and making agents miss turns. Assumes this world is the only one using the quota.
     """
     day_ticks = (config.NIGHT_START_HOUR - config.NIGHT_END_HOUR) * config.TICKS_PER_DAY // 24
     night_ticks = config.TICKS_PER_DAY - day_ticks
     population = sum(model_counts.values())
     speed = config.MAX_SPEED
     for model, count in model_counts.items():
-        p = config.PROVIDERS[model]
         # Upper bound: every agent awake all day, plus its share of the night's awake slots.
         turns = count * day_ticks + night_ticks * config.NIGHT_AWAKE_MAX * count / population
-        budget = p["daily_requests"]
-        if p["daily_tokens"] is not None:
-            budget = min(budget, p["daily_tokens"] / tokens_per_turn[model])
-        speed = min(speed, config.QUOTA_SHARE * budget / turns)
+        speed = min(speed, turns_left_today[model] / turns * 24 * 60 * 60 / seconds_left_today[model])
     return speed
+
+
+def pace(agents, tick, quota, now):
+    models = acting_models(agents, tick)
+    return world_days_per_day(models, {m: turns_left(quota, m) for m in models},
+                              {m: seconds_to_reset(m, now) for m in models})
 
 
 def run_forever(db, api, namespace, brain, quota, god_turn):
@@ -282,9 +295,9 @@ def run_forever(db, api, namespace, brain, quota, god_turn):
             continue
         started = time.monotonic()
         agents = run_tick(db, api, namespace, brain, god_turn)
-        counts = acting_models(agents, db.get("tick"))
-        speed = world_days_per_day(counts, {m: turn_tokens(quota, m) for m in counts})
-        wait = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
+        speed = pace(agents, db.get("tick"), quota, datetime.datetime.now(datetime.UTC))
+        # Speed 0: today's quota is spent; check again later instead of dividing by zero.
+        wait = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY) if speed > 0 else 600
         print(f"tick {db.get('tick') - 1}: {speed:.2f} world days per day, next tick in {wait:.0f}s", flush=True)
         time.sleep(max(0.0, wait - (time.monotonic() - started)))
 

@@ -23,6 +23,13 @@ def quota_day(provider):
     return datetime.datetime.now(tz).strftime("%Y-%m-%d")
 
 
+def seconds_to_reset(provider, now):
+    """now: an aware datetime. Seconds until midnight in the provider's quota time zone."""
+    local = now.astimezone(zoneinfo.ZoneInfo(config.PROVIDERS[provider]["quota_tz"]))
+    midnight = (local + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (midnight - local).total_seconds()
+
+
 def quota_db_path():
     """Quotas belong to the account, not to a world, so all worlds share one counter."""
     return os.path.join(config.DB_DIR, "quota.db")

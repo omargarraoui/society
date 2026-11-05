@@ -21,7 +21,7 @@ import config
 from db import DB, quota_db_path, world_db_path
 from metrics import event_rows, segregation
 from state import load_agents, load_k8s_config
-from world import acting_models, turn_tokens, world_days_per_day
+from world import pace
 
 FEED_LENGTH = 400
 
@@ -129,10 +129,8 @@ def main():
     load_k8s_config()
     agents = load_agents(kubernetes.client.CustomObjectsApi(), args.world)
     now = datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
-    quota = DB(quota_db_path())
     db = DB(world_db_path(args.world))
-    models = acting_models(agents, db.get("tick", 0))
-    speed = world_days_per_day(models, {m: turn_tokens(quota, m) for m in models})
+    speed = pace(agents, db.get("tick", 0), DB(quota_db_path()), datetime.datetime.now(datetime.UTC))
     content = json.dumps(snapshot(args.world, db, agents, now, speed),
                          ensure_ascii=False)
     if args.out:
