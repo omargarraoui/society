@@ -6,6 +6,7 @@
 import argparse
 import base64
 import datetime
+import hashlib
 import json
 import os
 import pathlib
@@ -68,6 +69,14 @@ def snapshot(world, db, agents, now, speed):
     }
 
 
+def versioned(index, files):
+    """GitHub Pages lets browsers cache files for 10 minutes: a content hash in the URL makes a changed
+    app.js or style.css load at once."""
+    for name, content in files.items():
+        index = index.replace(f'"{name}"', f'"{name}?v={hashlib.sha256(content).hexdigest()[:8]}"')
+    return index
+
+
 def github(token, method, url, body=None):
     request = urllib.request.Request(f"https://api.github.com{url}", method=method,
                                      data=None if body is None else json.dumps(body).encode(),
@@ -100,8 +109,11 @@ def main():
     if args.cmd == "site":
         repo, token = os.environ["GITHUB_REPO"], os.environ["GITHUB_TOKEN"]
         # A local preview leaves a data.json in site/; the real one comes only from the world.
-        for path in sorted(p for p in pathlib.Path("site").iterdir() if p.name != "data.json"):
-            put_file(repo, token, path.name, path.read_bytes(), f"Pagina: {path.name}")
+        site = {p.name: p.read_bytes() for p in pathlib.Path("site").iterdir() if p.name != "data.json"}
+        site["index.html"] = versioned(site["index.html"].decode(), {n: site[n] for n in ("app.js", "style.css")}
+                                       ).encode()
+        for name, content in sorted(site.items()):
+            put_file(repo, token, name, content, f"Pagina: {name}")
         # Pages is switched on by hand once (Settings > Pages): doing it through the API needs a token with
         # repository administration rights, too much for a token that lives on the server.
         print(f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/")

@@ -1,5 +1,5 @@
 from db import DB
-from export import snapshot
+from export import snapshot, versioned
 
 PROMISE = {"metadata": {"name": "eve-p1"}, "spec": {"body": "I will not steal.", "refrains": "steal", "tick": 30},
            "status": {"state": "kept", "violations": 0}}
@@ -46,3 +46,10 @@ def test_groups_count_only_the_living_and_children_are_flagged(tmp_path):
     assert s["groups"] == {"groq": 2, "gemini": 1}
     assert [p["name"] for p in s["people"] if p["child"]] == ["seth"]
     assert s["totals"]["work"] == 1
+
+
+def test_assets_get_a_version_that_changes_with_their_content():
+    index = '<link href="style.css"><script src="app.js"></script>'
+    one = versioned(index, {"app.js": b"a", "style.css": b"s"})
+    assert one == '<link href="style.css?v=043a7187"><script src="app.js?v=ca978112"></script>'
+    assert versioned(index, {"app.js": b"b", "style.css": b"s"}) != one
