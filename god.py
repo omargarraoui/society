@@ -125,7 +125,7 @@ def apply(db, api, namespace, agents, tick, answer, now):
         if (to != "all" and to not in living) or not r["message"] or len(r["message"]) > config.MAX_MESSAGE_CHARS:
             db.log("invalid", "god", action="revelation", reason="unknown person or bad message", **r)
             continue
-        db.log("revelation", "god", target=to, message=r["message"])
+        db.log("revelation", "god", target=to, message=r["message"].strip())
 
     if answer["representative"] is not None:
         chosen = answer["representative"].strip().lower()

@@ -141,3 +141,10 @@ def test_a_per_minute_limit_is_waited_out(tmp_path, monkeypatch, refusals, resul
     else:
         assert call("gemini", [], quota) == result
     assert waits == [60] * min(refusals, 2)
+
+
+def test_parse_trims_the_message():
+    # Seen live on Gemma and Gemini: messages ending with a space.
+    answer = {"action": "pray", "target": None, "message": " Guide us. ", "refrains": None, "promise": None,
+              "kept": None, "amount": None}
+    assert parse(answer) == ("pray", {"message": "Guide us."})

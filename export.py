@@ -38,6 +38,7 @@ def promise_view(promise, judgments):
 def snapshot(world, db, agents, now, speed):
     """speed: world days per real day, as the world loop paces itself."""
     tick = db.get("tick", 0)
+    did = Counter((r["agent"], r["kind"]) for r in db.q("select agent, kind from events"))
     judgments = {}
     for r in db.q("select json_extract(data, '$.promise') as p, json_extract(data, '$.kept') as k from events "
                   "where kind='assess'"):
@@ -48,6 +49,7 @@ def snapshot(world, db, agents, now, speed):
         "child": not births.adult(a, tick), "exiled": a["exiled_until"] > tick,
         "warnings": a["warnings"], "marks": a["marks"],
         "promises": [promise_view(p, judgments) for p in a["promises"]],
+        "did": {kind: n for (agent, kind), n in did.items() if agent == a["name"]},
     } for a in sorted(agents.values(), key=lambda a: (a["born"] or 0, a["name"]))]
     marks = ",".join("?" * len(config.ROUTINE_EVENTS))
     feed = [{"id": r["id"], "tick": r["tick"], "kind": r["kind"], "agent": r["agent"],
@@ -61,7 +63,9 @@ def snapshot(world, db, agents, now, speed):
         "calendar": {"ticks_per_day": config.TICKS_PER_DAY, "days_per_week": config.DAYS_PER_WEEK,
                      "rest_day": config.REST_DAY},
         # The numbers in the page's "How it works", so the text follows config.
-        "rules": {"turns_per_day": config.TICKS_PER_DAY, "turn_minutes": 24 * 60 // config.TICKS_PER_DAY,
+        "rules": {"turns_per_day": config.TICKS_PER_DAY,
+                  "turn_length": "world hour" if config.TICKS_PER_DAY == 24 else
+                  f"{24 * 60 // config.TICKS_PER_DAY} world minutes",
                   "night_start": config.NIGHT_START_HOUR, "night_end": f"{config.NIGHT_END_HOUR:02d}",
                   "start_food": config.START_FOOD, "upkeep": config.UPKEEP_PER_DAY,
                   "work_turns": config.WORK_TURNS_FOR_FOOD, "work_gain": config.WORK_GAIN,

@@ -173,6 +173,8 @@ def parse(answer):
     # Seen live: the model fills fields the action does not use, despite the rules. They are dropped.
     data = {k: v for k, v in answer.items()
             if k != "action" and v is not None and answer["action"] in ONLY_FOR.get(k, {answer["action"]})}
+    if "message" in data:
+        data["message"] = data["message"].strip()
     if "target" in data:
         # The prompt shows capitalized names; agent ids are lowercase.
         data["target"] = data["target"].strip().lower()

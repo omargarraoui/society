@@ -56,7 +56,8 @@ function when(tick) {
   };
 }
 
-const quote = (text) => el("span", { class: "quote", lang: "en" }, `“${text}”`);
+const quote = (text) => el("span", { class: "quote", lang: "en" }, `“${text.trim()}”`);
+const times = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 function sentence(e) {
   const d = e.data;
@@ -116,7 +117,7 @@ function renderStats() {
   const promises = data.people.flatMap((p) => p.promises);
   const tiles = [
     [alive.length, `alive${alive.some((p) => p.child) ? `, ${alive.filter((p) => p.child).length} children` : ""}`],
-    [promises.length, "promises made"],
+    [promises.length, promises.length === 1 ? "promise made" : "promises made"],
     [data.totals.steal || 0, "thefts"],
     [data.totals.accept_marriage || 0, "marriages"],
     [data.totals.birth || 0, "births"],
@@ -135,7 +136,9 @@ function renderPeople() {
       p.spouse ? ["Married to ", who(p.spouse)] : null,
       p.parents.length ? ["Child of ", who(p.parents[0]), " and ", who(p.parents[1])] : null,
       p.child ? "Still a child" : null,
-      `${p.promises.length} ${p.promises.length === 1 ? "promise" : "promises"}`,
+      `${times(p.promises.length, "promise", "promises")}`,
+      `Worked ${times(p.did.work || 0, "hour", "hours")}, rested ${p.did.rest || 0}, `
+        + `spoke ${times((p.did.speak || 0) + (p.did.pray || 0) + (p.did.petition || 0), "time", "times")}`,
     ].filter(Boolean);
     const tags = [
       p.role ? el("span", { class: "tag god" }, `The ${p.role}`) : null,
@@ -190,9 +193,10 @@ function renderPromises() {
     const t = when(p.tick);
     return el("article", { class: "promise" },
       el("div", {}, who(p.by), el("span", { class: "model" }, `  week ${t.week}, day ${t.weekday}, ${t.time}`)),
-      el("p", { class: "body", lang: "en" }, `“${p.body}”`),
+      el("p", { class: "body", lang: "en" }, `“${p.body.trim()}”`),
       el("div", { class: "verdicts" }, record,
-        el("span", {}, `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×`)));
+        el("span", {}, p.judged_kept + p.judged_broken
+          ? `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×` : "Nobody has judged it yet")));
   }) : [el("p", { class: "empty" }, "No promises yet.")]));
 }
 
@@ -204,7 +208,7 @@ function renderGod() {
   const day = (tick) => { const t = when(tick); return `week ${t.week}, day ${t.weekday}`; };
   document.getElementById("god").replaceChildren(el("div", { class: "god-grid" },
     el("div", { class: "god-words" },
-      words.length ? words.map((e) => el("blockquote", { lang: "en" }, `“${e.data.message}”`,
+      words.length ? words.map((e) => el("blockquote", { lang: "en" }, `“${e.data.message.trim()}”`,
         el("footer", {}, "To ", e.data.target === "all" ? "everyone" : cap(e.data.target), `, ${day(e.tick)}`)))
         : el("p", { class: "empty" }, "God hasn't spoken yet.")),
     el("div", { class: "god-side" },
