@@ -35,6 +35,10 @@ MAX_SPEED = 10
 # Si punta al 90% delle quote: il costo in token di un turno e' una media e cresce con gli agenti.
 QUOTA_SHARE = 0.9
 
+# Mirror live (live.py): solo la pagina pubblica puo' collegarsi dal browser.
+LIVE_ORIGIN = "https://omargarraoui.com"
+LIVE_MAX_CLIENTS = 100
+
 # Bot Telegram: il digest arriva ogni sera a quest'ora (ora italiana).
 DIGEST_HOUR = 21
 DIGEST_TZ = "Europe/Rome"

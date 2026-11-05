@@ -18,6 +18,8 @@ const FILTER_OF = {
   give: "food", steal: "food", starve: "food",
 };
 const PAGE = 60;
+const LIVE_URL = "https://live.omargarraoui.com/events";
+const WIRE_LENGTH = 80;
 
 let data, people, filter = "all", shown = PAGE;
 
@@ -87,6 +89,10 @@ function sentence(e) {
     case "child_denied": return [A, " said no to a child for ", B, quote(d.reason)];
     case "birth": return [A, " was born to ", who(d.parents[0]), " and ", who(d.parents[1])];
     case "starve": return [A, " died of hunger"];
+    case "work": return [A, " worked"];
+    case "rest": return [A, " rested"];
+    case "skip": return [A, ` missed a turn (${d.reason})`];
+    case "invalid": return [A, ` tried something the rules don't allow: ${d.action} (${d.reason})`];
     case "anomaly": return [A, "'s decision was blocked and the world paused: ", d.reason];
     default: return [A, ` ${e.kind}`];
   }
@@ -283,12 +289,39 @@ function render() {
 
 document.getElementById("more").addEventListener("click", () => { shown += PAGE; renderFeed(); });
 
+// The live mirror needs the people (for names and colors), so it starts after data.json has loaded.
+function startLive() {
+  const wire = document.getElementById("wire");
+  const status = document.getElementById("live-status");
+  const add = (item) => {
+    wire.prepend(item);
+    while (wire.children.length > WIRE_LENGTH) wire.lastChild.remove();
+  };
+  let now = "";
+  const source = new EventSource(LIVE_URL);
+  source.onopen = () => { status.textContent = `connected${now}`; status.className = "live-status on"; };
+  source.onerror = () => { status.textContent = "reconnecting…"; status.className = "live-status"; };
+  // The server announces a tick once the previous one is done, so the time sits in the status, and each line
+  // carries the time of its own event.
+  source.addEventListener("tick", (message) => {
+    const t = when(JSON.parse(message.data).tick);
+    now = ` · world day ${t.day + 1}, ${t.time}`;
+    status.textContent = `connected${now}`;
+  });
+  source.addEventListener("world", (message) => {
+    const e = JSON.parse(message.data);
+    const t = when(e.tick);
+    add(el("li", { class: ["work", "rest"].includes(e.kind) ? "routine" : "" },
+      el("time", {}, `day ${t.day + 1} ${t.time}`), ...sentence(e)));
+  });
+}
+
 fetch(`data.json?t=${Date.now()}`)
   .then((response) => {
     if (!response.ok) throw new Error(`data.json: HTTP ${response.status}`);
     return response.json();
   })
-  .then((json) => { data = json; render(); })
+  .then((json) => { data = json; render(); startLive(); })
   .catch((error) => {
     document.getElementById("now").textContent = "Couldn't load the data. Try again in a minute.";
     console.error(error);

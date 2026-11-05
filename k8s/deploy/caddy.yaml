@@ -1,0 +1,60 @@
+# The only service reachable from the internet: HTTPS for live.omargarraoui.com (certificate from Let's Encrypt,
+# renewed by Caddy), proxied to the read-only live mirror. Needs ports 80 and 443 open on the VM and a DNS A
+# record live.omargarraoui.com -> the VM's public IP.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy
+  namespace: society-system
+data:
+  Caddyfile: |
+    live.omargarraoui.com {
+      # flush_interval -1: pass each event through at once instead of buffering the stream.
+      reverse_proxy society-live.society-system.svc.cluster.local:8080 {
+        flush_interval -1
+      }
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: caddy-data
+  namespace: society-system
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caddy
+  namespace: society-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: caddy}
+  template:
+    metadata:
+      labels: {app: caddy}
+    spec:
+      volumes:
+        - name: config
+          configMap: {name: caddy}
+        - name: data
+          persistentVolumeClaim: {claimName: caddy-data}
+      containers:
+        - name: caddy
+          image: caddy:2.10.0-alpine
+          ports:
+            - {containerPort: 80, hostPort: 80}
+            - {containerPort: 443, hostPort: 443}
+          volumeMounts:
+            - {name: config, mountPath: /etc/caddy}
+            - {name: data, mountPath: /data}
+          resources:
+            requests: {memory: 32Mi, cpu: 10m}
+            limits: {memory: 128Mi}

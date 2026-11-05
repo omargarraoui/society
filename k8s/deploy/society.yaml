@@ -41,6 +41,18 @@ spec:
           resources:
             requests: {memory: 48Mi, cpu: 10m}
             limits: {memory: 128Mi}
+        - name: live
+          image: society:dev
+          imagePullPolicy: Never
+          command: [python, live.py, genesis, --port, "8080"]
+          ports: [{containerPort: 8080}]
+          # Read-only twice over: this mount, and SQLite opened with mode=ro in live.py.
+          volumeMounts: [{name: worlds, mountPath: /data, readOnly: true}]
+          readinessProbe:
+            httpGet: {path: /health, port: 8080}
+          resources:
+            requests: {memory: 32Mi, cpu: 10m}
+            limits: {memory: 128Mi}
         - name: world
           image: society:dev
           imagePullPolicy: Never
@@ -52,3 +64,13 @@ spec:
           resources:
             requests: {memory: 64Mi, cpu: 20m}
             limits: {memory: 192Mi}
+---
+# Inside the cluster only; Caddy (caddy.yaml) is the one door from the internet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: society-live
+  namespace: society-system
+spec:
+  selector: {app: society}
+  ports: [{port: 8080, targetPort: 8080}]

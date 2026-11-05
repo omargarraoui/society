@@ -20,6 +20,7 @@
   </header>
   <nav class="tabs" aria-label="Sections">
     <div class="wrap">
+      <a href="#live-section">Live</a>
       <a href="#people-section">People</a>
       <a href="#chronicle">Chronicle</a>
       <a href="#promises-section">Promises</a>
@@ -31,6 +32,12 @@
 
   <main class="wrap">
     <p class="stats" id="stats" aria-label="In numbers"></p>
+
+    <section id="live-section" aria-labelledby="live-title">
+      <h2 id="live-title">Live <span class="live-status" id="live-status">connecting…</span></h2>
+      <p class="lead">Straight from the server, as it happens: every turn, routine included.</p>
+      <ol class="wire" id="wire" aria-live="off"></ol>
+    </section>
 
     <section id="people-section">
       <h2>People</h2>
