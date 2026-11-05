@@ -249,6 +249,11 @@ def turn_tokens(quota, model):
     return tokens / requests if requests else config.PROVIDERS[model]["turn_tokens"]
 
 
+def acting_models(agents, tick):
+    """Who takes turns, by model: the dead and children don't."""
+    return Counter(a["model"] for a in agents.values() if a["alive"] and births.adult(a, tick))
+
+
 def world_days_per_day(model_counts, tokens_per_turn):
     """How many world days fit in one real day of free quota, capped at MAX_SPEED.
 
@@ -277,7 +282,7 @@ def run_forever(db, api, namespace, brain, quota, god_turn):
             continue
         started = time.monotonic()
         agents = run_tick(db, api, namespace, brain, god_turn)
-        counts = Counter(a["model"] for a in agents.values())
+        counts = acting_models(agents, db.get("tick"))
         speed = world_days_per_day(counts, {m: turn_tokens(quota, m) for m in counts})
         wait = 24 * 60 * 60 / (speed * config.TICKS_PER_DAY)
         print(f"tick {db.get('tick') - 1}: {speed:.2f} world days per day, next tick in {wait:.0f}s", flush=True)

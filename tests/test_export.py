@@ -24,7 +24,7 @@ def world(tmp_path):
     agents = {"adam": person("adam", "M", "groq"), "eve": person("eve", "F", "gemini", promises=[PROMISE]),
               "abel": person("abel", "M", "groq", alive=False),
               "seth": person("seth", "M", "groq", born=30, parents=["adam", "eve"])}
-    return snapshot("genesis", db, agents, "2026-11-05T12:00:00+00:00")
+    return snapshot("genesis", db, agents, "2026-11-05T12:00:00+00:00", speed=2.9)
 
 
 def test_the_public_page_shows_models_and_promise_verdicts(tmp_path):

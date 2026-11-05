@@ -4,7 +4,7 @@ import pytest
 
 import config
 from db import DB
-from world import turn_tokens, world_days_per_day
+from world import acting_models, turn_tokens, world_days_per_day
 
 SECONDS_PER_DAY = 86400
 
@@ -40,3 +40,13 @@ def test_turn_tokens_uses_todays_average_once_measured(tmp_path):
     quota.add_usage("groq", 900)
     quota.add_usage("groq", 1100)
     assert turn_tokens(quota, "groq") == 1000
+
+
+def test_only_living_adults_take_turns():
+    agents = {
+        "adam": {"model": "groq", "alive": True, "born": None},
+        "abel": {"model": "groq", "alive": False, "born": None},
+        "seth": {"model": "gemini", "alive": True, "born": 100},
+    }
+    assert acting_models(agents, tick=101) == {"groq": 1}
+    assert acting_models(agents, tick=100 + 7 * config.TICKS_PER_DAY) == {"groq": 1, "gemini": 1}

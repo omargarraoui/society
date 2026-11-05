@@ -17,9 +17,10 @@ import kubernetes
 
 import births
 import config
-from db import DB, world_db_path
+from db import DB, quota_db_path, world_db_path
 from metrics import event_rows, segregation
 from state import load_agents, load_k8s_config
+from world import acting_models, turn_tokens, world_days_per_day
 
 # The feed shows what people say and do to each other; routine and bookkeeping stay out.
 QUIET = ("work", "rest", "skip", "invalid")
@@ -35,7 +36,8 @@ def promise_view(promise, judgments):
             "judged_kept": kept.count(1), "judged_broken": kept.count(0)}
 
 
-def snapshot(world, db, agents, now):
+def snapshot(world, db, agents, now, speed):
+    """speed: world days per real day, as the world loop paces itself."""
     tick = db.get("tick", 0)
     judgments = {}
     for r in db.q("select json_extract(data, '$.promise') as p, json_extract(data, '$.kept') as k from events "
@@ -56,7 +58,7 @@ def snapshot(world, db, agents, now):
     totals = Counter(r["kind"] for r in db.q("select kind from events"))
     living = [a for a in agents.values() if a["alive"]]
     return {
-        "world": world, "updated": now, "tick": tick, "paused": db.get("paused", False),
+        "world": world, "updated": now, "tick": tick, "paused": db.get("paused", False), "speed": speed,
         "calendar": {"ticks_per_day": config.TICKS_PER_DAY, "days_per_week": config.DAYS_PER_WEEK,
                      "rest_day": config.REST_DAY},
         "people": people,
@@ -110,7 +112,12 @@ def main():
     load_k8s_config()
     agents = load_agents(kubernetes.client.CustomObjectsApi(), args.world)
     now = datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
-    content = json.dumps(snapshot(args.world, DB(world_db_path(args.world)), agents, now), ensure_ascii=False)
+    quota = DB(quota_db_path())
+    db = DB(world_db_path(args.world))
+    models = acting_models(agents, db.get("tick", 0))
+    speed = world_days_per_day(models, {m: turn_tokens(quota, m) for m in models})
+    content = json.dumps(snapshot(args.world, db, agents, now, speed),
+                         ensure_ascii=False)
     if args.out:
         pathlib.Path(args.out).write_text(content)
     else:
