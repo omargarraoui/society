@@ -1,7 +1,10 @@
 import json
+import time
+import types
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+import openai
 import pytest
 from fakes import at
 
@@ -106,3 +109,35 @@ def test_the_observer_sees_what_was_seen_and_the_observed_only_that_it_happened(
     assert describe(e, "adam") == ("Week 1, day 1, 10:00: you watched Eve: week 1, day 1, 08:00 worked; "
                                    "week 1, day 1, 09:00 stole food from you")
     assert describe(e, "eve") == "Week 1, day 1, 10:00: Adam watched you"
+
+
+class RateLimitedThenOk:
+    """Stands in for the provider's API: refuses `refusals` times with a 429, then answers."""
+
+    def __init__(self, refusals):
+        self.refusals = refusals
+        self.chat = self
+        self.completions = self
+
+    def create(self, **_):
+        if self.refusals:
+            self.refusals -= 1
+            response = types.SimpleNamespace(request=None, status_code=429, headers={})
+            raise openai.RateLimitError("429", response=response, body=None)
+        return types.SimpleNamespace(usage=types.SimpleNamespace(total_tokens=10), choices=[
+            types.SimpleNamespace(message=types.SimpleNamespace(content='{"answer": "ok"}'))])
+
+
+@pytest.mark.parametrize("refusals, result", [(2, {"answer": "ok"}), (3, QuotaExhausted)])
+def test_a_per_minute_limit_is_waited_out(tmp_path, monkeypatch, refusals, result):
+    api, waits = RateLimitedThenOk(refusals), []
+    monkeypatch.setattr(openai, "OpenAI", lambda **_: api)
+    monkeypatch.setattr(time, "sleep", waits.append)
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    quota = DB(str(tmp_path / "q.db"))
+    if result is QuotaExhausted:
+        with pytest.raises(QuotaExhausted):
+            call("gemini", [], quota)
+    else:
+        assert call("gemini", [], quota) == result
+    assert waits == [60] * min(refusals, 2)

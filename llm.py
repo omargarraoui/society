@@ -6,6 +6,7 @@ or failing provider raises Unavailable and the agent sleeps through its turn.
 """
 import json
 import os
+import time
 
 import openai
 
@@ -52,6 +53,9 @@ VERBS = {"promise": "promised", "work": "worked", "rest": "rested", "pray": "pra
          "sentence": "sentenced", "pardon": "pardoned", "penalty": "carried out the sentence on",
          "starve": "died of hunger", "request_child": "asked God for a child with", "birth": "was born",
          "child_denied": "refused a child to"}
+
+
+RATE_LIMIT_ATTEMPTS = 3
 
 
 class Unavailable(Exception):
@@ -146,15 +150,21 @@ def call(provider, messages, quota, schema=SCHEMA):
     client = openai.OpenAI(base_url=p["base_url"].format(**os.environ), api_key=os.environ[p["key_env"]],
                            max_retries=5)
     response_schema = {"name": "answer", "strict": True, "schema": schema}
-    try:
-        response = client.chat.completions.create(
-            model=p["model"], messages=messages,
-            response_format={"type": "json_schema", "json_schema": response_schema}, **p["extra"])
-    except openai.RateLimitError as e:
-        raise QuotaExhausted(f"{provider}: quota exhausted") from e
-    # Seen live on Gemini: 503 after the SDK's retries. APIConnectionError includes timeouts.
-    except (openai.InternalServerError, openai.APIConnectionError) as e:
-        raise ProviderDown(f"{provider}: {e}") from e
+    for attempt in range(RATE_LIMIT_ATTEMPTS):
+        try:
+            response = client.chat.completions.create(
+                model=p["model"], messages=messages,
+                response_format={"type": "json_schema", "json_schema": response_schema}, **p["extra"])
+            break
+        except openai.RateLimitError as e:
+            # Seen live in a fast-forward: Gemini's 15 requests a minute outlasted the SDK's retries. A
+            # per-minute limit clears within a minute; the daily limit is caught by our counter above.
+            if attempt == RATE_LIMIT_ATTEMPTS - 1:
+                raise QuotaExhausted(f"{provider}: rate limited") from e
+            time.sleep(60)
+        # Seen live on Gemini: 503 after the SDK's retries. APIConnectionError includes timeouts.
+        except (openai.InternalServerError, openai.APIConnectionError) as e:
+            raise ProviderDown(f"{provider}: {e}") from e
     quota.add_usage(provider, response.usage.total_tokens)
     return json.loads(response.choices[0].message.content)
 
