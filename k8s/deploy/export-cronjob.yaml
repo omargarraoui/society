@@ -1,4 +1,4 @@
-# Every hour, publishes a snapshot of the genesis world to the public dashboard (GitHub Pages).
+# Every 10 minutes, publishes a snapshot of the genesis world to the public dashboard (GitHub Pages).
 # Needs GITHUB_TOKEN and GITHUB_REPO in the society-keys secret.
 apiVersion: batch/v1
 kind: CronJob
@@ -6,7 +6,8 @@ metadata:
   name: export
   namespace: society-system
 spec:
-  schedule: "7 * * * *"
+  # GitHub suggests at most about 10 Pages builds an hour; every 10 minutes is 6.
+  schedule: "*/10 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2

@@ -22,8 +22,6 @@ from metrics import event_rows, segregation
 from state import load_agents, load_k8s_config
 from world import acting_models, turn_tokens, world_days_per_day
 
-# The feed shows what people say and do to each other; routine and bookkeeping stay out.
-QUIET = ("work", "rest", "skip", "invalid")
 FEED_LENGTH = 400
 
 
@@ -50,11 +48,11 @@ def snapshot(world, db, agents, now, speed):
         "warnings": a["warnings"], "marks": a["marks"],
         "promises": [promise_view(p, judgments) for p in a["promises"]],
     } for a in sorted(agents.values(), key=lambda a: (a["born"] or 0, a["name"]))]
-    marks = ",".join("?" * len(QUIET))
+    marks = ",".join("?" * len(config.ROUTINE_EVENTS))
     feed = [{"id": r["id"], "tick": r["tick"], "kind": r["kind"], "agent": r["agent"],
              "data": {k: v for k, v in json.loads(r["data"]).items() if k != "saw"}}
             for r in db.q(f"select id, tick, kind, agent, data from events where kind not in ({marks}) "
-                          "order by id desc limit ?", (*QUIET, FEED_LENGTH))]
+                          "order by id desc limit ?", (*config.ROUTINE_EVENTS, FEED_LENGTH))]
     totals = Counter(r["kind"] for r in db.q("select kind from events"))
     living = [a for a in agents.values() if a["alive"]]
     return {

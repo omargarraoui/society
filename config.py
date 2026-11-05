@@ -53,6 +53,8 @@ ACTIONS = ["promise", "work", "rest", "speak", "pray", "give", "steal",
            "propose_marriage", "accept_marriage", "assess", "observe", "petition", "request_child"]
 # Cio' che fa l'agente-Dio. Gli agenti lo vedono negli eventi, ma non possono farlo.
 GOD_EVENTS = ["revelation", "appoint", "sentence", "pardon", "penalty", "child_denied"]
+# Routine e servizio: restano fuori dagli avvisi live su Telegram e dalla cronaca pubblica.
+ROUTINE_EVENTS = ["work", "rest", "skip", "invalid"]
 # Eventi che vedono tutti, non solo chi li fa o li subisce.
 PUBLIC_EVENTS = ["starve", "birth"]
 # Quante azioni recenti mostra un observe (dall'inizio di ieri). Le preghiere restano private.

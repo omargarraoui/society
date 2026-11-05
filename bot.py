@@ -67,14 +67,15 @@ def digest_text(world, db, since_id):
 
 
 def alert_texts(rows):
-    """Events worth a notification right away. Skips are counted, not listed."""
+    """One line per event, sent live; routine is left out and skips are only counted."""
     texts = []
     for r in rows:
         data = json.loads(r["data"])
         if r["kind"] == "accept_marriage":
             texts.append(f"Matrimonio: {r['agent'].capitalize()} e {data['target'].capitalize()}")
         elif r["kind"] == "steal":
-            texts.append(f"Furto: {r['agent'].capitalize()} ha rubato a {data['target'].capitalize()}")
+            texts.append(f"Furto: {r['agent'].capitalize()} ha rubato {data['taken']} cibo a "
+                         f"{data['target'].capitalize()}")
         elif r["kind"] == "birth":
             parents = " e ".join(p.capitalize() for p in data["parents"])
             texts.append(f"Nascita: {r['agent'].capitalize()} ({data['sex']}), figlio di {parents}")
@@ -93,8 +94,21 @@ def alert_texts(rows):
             texts.append(f"Eseguita la sentenza #{data['decision']}: {data['target'].capitalize()}, {data['penalty']}")
         elif r["kind"] == "anomaly":
             texts.append(f"ALLARME: {data['reason']}. Proposta: {data['sentence']}. /riprendi per ripartire.")
+        elif r["kind"] not in config.ROUTINE_EVENTS:
+            texts.append(llm.describe(r, ""))
     skips = Counter(json.loads(r["data"])["reason"] for r in rows if r["kind"] == "skip")
     return texts, skips
+
+
+def batches(texts, limit=4000):
+    """Everything that happened in one polling round goes out together, split only at Telegram's size limit."""
+    messages, current = [], ""
+    for text in texts:
+        if current and len(current) + 2 + len(text) > limit:
+            messages.append(current)
+            current = ""
+        current = f"{current}\n\n{text}" if current else text[:limit]
+    return [*messages, current] if current else messages
 
 
 def pardon(db, decision):
@@ -151,8 +165,8 @@ def run(world, token, chat_id):
                     (db.get("alert_event_id"),))
         if rows:
             texts, skips = alert_texts(rows)
-            for text in texts:
-                send(text)
+            for message in batches(texts):
+                send(message)
             if skips and time.time() - db.get("skip_alert_at", 0) > SKIP_ALERT_SECONDS:
                 send("Turni saltati: " + ", ".join(f"{n} ({reason})" for reason, n in skips.items()))
                 db.set("skip_alert_at", time.time())

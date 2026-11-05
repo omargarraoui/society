@@ -1,6 +1,6 @@
 import datetime
 
-from bot import alert_texts, digest_due, digest_text, handle
+from bot import alert_texts, batches, digest_due, digest_text, handle
 from db import DB
 
 PROMISE = {"metadata": {"name": "p"}, "spec": {"body": "I will not steal."}}
@@ -49,12 +49,14 @@ def test_status_shows_agents_quotas_and_pause(tmp_path):
 
 def test_alerts_for_marriage_and_theft_and_counted_skips(tmp_path):
     db = world_db(tmp_path, [(30, "accept_marriage", "eve", {"target": "adam"}),
-                             (31, "steal", "adam", {"target": "eve"}),
+                             (31, "steal", "adam", {"target": "eve", "amount": 3, "taken": 2}),
+                             (31, "speak", "eve", {"target": "adam", "message": "Give it back."}),
                              (31, "work", "eve", {}),
                              (32, "skip", "eve", {"reason": "gemini: quota exhausted"}),
                              (33, "skip", "eve", {"reason": "gemini: quota exhausted"})])
     texts, skips = alert_texts(rows(db))
-    assert texts == ["Matrimonio: Eve e Adam", "Furto: Adam ha rubato a Eve"]
+    assert texts == ["Matrimonio: Eve e Adam", "Furto: Adam ha rubato 2 cibo a Eve",
+                     'Week 1, day 1, 07:45: Eve said to Adam: "Give it back."']
     assert skips == {"gemini: quota exhausted": 2}
 
 
@@ -110,3 +112,9 @@ def test_alerts_for_sentences_and_anomalies(tmp_path):
                         "Diventa effettiva tra 24 ore. Per annullarla: /annulla 4")
     assert texts[1] == "Dio a Eve: warning. Motivo: She lied."
     assert texts[2].startswith("ALLARME: too many deaths in a day: world paused.")
+
+
+def test_one_round_goes_out_as_one_message_split_only_at_the_limit():
+    assert batches([]) == []
+    assert batches(["a", "b"]) == ["a\n\nb"]
+    assert batches(["x" * 30, "y" * 30], limit=50) == ["x" * 30, "y" * 30]
