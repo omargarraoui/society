@@ -75,7 +75,8 @@ function sentence(e) {
       : [A, " tried to steal from ", B, ", who had nothing"];
     case "propose_marriage": return [A, " asked ", B, " to marry them"];
     case "accept_marriage": return [A, " and ", B, " got married"];
-    case "assess": return [A, " judged that ", B, d.kept ? " kept a promise" : " broke a promise"];
+    case "assess": return [A, " judged that ", B, d.kept ? " kept a promise" : " broke a promise",
+      d.reason ? quote(d.reason) : null];
     case "observe": return [A, " watched ", B];
     case "request_child": return [A, " asked God for a child with ", B];
     case "revelation": return [A, " to ", B, quote(d.message)];
@@ -200,14 +201,17 @@ function renderPromises() {
       ? (p.state === "broken"
         ? el("span", { class: "ko" }, `Record: broken ${p.violations} ${p.violations === 1 ? "time" : "times"}`)
         : el("span", { class: "ok" }, "Record: kept so far"))
-      : el("span", {}, "The code can't check this one");
+      : null;
+    const god = p.god
+      ? [el("span", { class: p.god.kept ? "ok" : "ko" }, `God: ${p.god.kept ? "kept" : "broken"}`), quote(p.god.reason)]
+      : el("span", {}, "God hasn't judged it yet");
     const t = when(p.tick);
     return el("article", { class: "promise" },
       el("div", {}, who(p.by), el("span", { class: "model" }, `  week ${t.week}, day ${t.weekday}, ${t.time}`)),
       el("p", { class: "body", lang: "en" }, `“${p.body.trim()}”`),
-      el("div", { class: "verdicts" }, record,
+      el("div", { class: "verdicts" }, god, record,
         el("span", {}, p.judged_kept + p.judged_broken
-          ? `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×` : "Nobody has judged it yet")));
+          ? `Others judged it kept ${p.judged_kept}×, broken ${p.judged_broken}×` : "No one else has judged it yet")));
   }) : [el("p", { class: "empty" }, "No promises yet.")]));
 }
 
