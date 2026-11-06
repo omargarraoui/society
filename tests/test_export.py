@@ -2,7 +2,8 @@ from db import DB
 from export import snapshot, versioned
 
 PROMISE = {"metadata": {"name": "eve-p1"}, "spec": {"body": "I will not steal.", "refrains": "steal", "tick": 30},
-           "status": {"state": "kept", "violations": 0}}
+           "status": {"state": "kept", "violations": 0, "judgedKept": 1,
+                      "godVerdict": {"kept": True, "reason": "She took nothing.", "tick": 40}}}
 
 
 def person(name, sex, model, alive=True, promises=(), born=None, parents=()):
@@ -32,7 +33,8 @@ def test_the_public_page_shows_models_and_promise_verdicts(tmp_path):
     eve = next(p for p in s["people"] if p["name"] == "eve")
     assert eve["model"] == "gemini"
     assert eve["promises"] == [{"id": "eve-p1", "body": "I will not steal.", "refrains": "steal", "tick": 30,
-                                "state": "kept", "violations": 0, "judged_kept": 1, "judged_broken": 0}]
+                                "state": "kept", "violations": 0, "judged_kept": 1, "judged_broken": 0,
+                                "god": {"kept": True, "reason": "She took nothing.", "tick": 40}}]
 
 
 def test_the_feed_leaves_out_routine_and_what_was_seen(tmp_path):

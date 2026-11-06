@@ -21,7 +21,7 @@ import food
 import god
 import llm
 from db import DB, quota_db_path, seconds_to_reset, world_db_path
-from state import GROUP, crd, load_agents, load_k8s_config, patch_status
+from state import GROUP, crd, create_assessment, load_agents, load_k8s_config, patch_status
 
 # Arbitrary mock frequencies, chosen so a few simulated days contain every kind of interaction.
 MOCK_WEIGHTS = {"work": 35, "speak": 25, "give": 10, "steal": 10, "propose_marriage": 5, "assess": 10, "observe": 5}
@@ -258,12 +258,7 @@ def run_tick(db, api, namespace, brain, god_turn=None):
         elif kind == "observe":
             data["saw"] = observed(db, data["target"], tick)
         elif kind == "assess":
-            api.create_namespaced_custom_object(**crd("assessments", namespace), body={
-                "apiVersion": f"{GROUP}/v1", "kind": "Assessment",
-                "metadata": {"generateName": f"{name}-"},
-                "spec": {"assessor": name, "promiser": data["target"], "promise": data["promise"],
-                         "kept": data["kept"], "tick": tick},
-            })
+            create_assessment(api, namespace, name, data["target"], data["promise"], data["kept"], tick)
         db.log(kind, name, **data)
     db.set("tick", tick + 1)
     return agents

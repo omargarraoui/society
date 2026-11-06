@@ -47,3 +47,12 @@ def patch_status(api, namespace, agent, **fields):
     api.patch_namespaced_custom_object_status(**crd("agents", namespace), name=agent["name"],
                                               body={"status": fields})
     agent.update({STATUS[field][0]: value for field, value in fields.items()})
+
+
+def create_assessment(api, namespace, assessor, promiser, promise, kept, tick, reason=None):
+    api.create_namespaced_custom_object(**crd("assessments", namespace), body={
+        "apiVersion": f"{GROUP}/v1", "kind": "Assessment",
+        "metadata": {"generateName": f"{assessor}-"},
+        "spec": {"assessor": assessor, "promiser": promiser, "promise": promise, "kept": kept, "tick": tick,
+                 **({"reason": reason} if reason else {})},
+    })

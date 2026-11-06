@@ -11,12 +11,12 @@ import births
 import config
 import food
 import llm
-from state import patch_status
+from state import create_assessment, patch_status
 
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["revelations", "representative", "penalties", "children"],
+    "required": ["revelations", "representative", "penalties", "children", "judgments"],
     "properties": {
         "revelations": {"type": "array", "items": {
             "type": "object", "additionalProperties": False, "required": ["to", "message"],
@@ -32,6 +32,10 @@ SCHEMA = {
             "type": "object", "additionalProperties": False, "required": ["parent", "approve", "reason"],
             "properties": {"parent": {"type": "string"}, "approve": {"type": "boolean"},
                            "reason": {"type": "string"}}}},
+        "judgments": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["promise", "kept", "reason"],
+            "properties": {"promise": {"type": "string"}, "kept": {"type": "boolean"},
+                           "reason": {"type": "string"}}}},
     },
 }
 
@@ -40,7 +44,9 @@ INSTRUCTIONS = """Reply with JSON:
 - representative: the name of the person to appoint, or null to keep the current one.
 - penalties: each with target, penalty and reason. days: for exile and no_children. amount: food for fine, and
   for restitution, which gives back to victim what target stole from them. Unused fields are null.
-- children: your answer to each request for a child since yesterday: the parent who asked, approve, reason."""
+- children: your answer to each request for a child since yesterday: the parent who asked, approve, reason.
+- judgments: your verdict on any promise, by its [id]: kept true or false, and the reason. A verdict stands
+  until you give a different one."""
 
 
 def describe_person(agent, tick):
@@ -56,31 +62,55 @@ def describe_person(agent, tick):
         parts.append(f"born {llm.clock(agent['born'])}, child of {parents}"
                      + ("" if births.adult(agent, tick) else ", still a child"))
     parts += [f"warned: {w}" for w in agent["warnings"]] + [f"marked: {m}" for m in agent["marks"]]
-    parts += [f'promised "{p["spec"]["body"]}"' + (" (broken by the record)" if p.get("status", {}).get("state")
-                                                   == "broken" else "") for p in agent["promises"]]
+    parts += [promise_line(p) for p in agent["promises"]]
     return "- " + "; ".join(parts)
 
 
-def prompt(constitution, agents, tick, events, decisions):
+def promise_line(promise):
+    status = promise.get("status", {})
+    line = f'promised [{promise["metadata"]["name"]}] "{promise["spec"]["body"]}"'
+    if status.get("state") == "broken":
+        line += " (broken by the record)"
+    if "godVerdict" in status:
+        verdict = status["godVerdict"]
+        line += f" (your verdict: {'kept' if verdict['kept'] else 'broken'}, {verdict['reason']})"
+    return line
+
+
+def prompt(constitution, agents, tick, events, hours, decisions):
     commandments = "\n".join(f"{i}. {c}" for i, c in enumerate(config.COMMANDMENTS, 1))
     system = f"{constitution}\n\nThe commandments you revealed:\n{commandments}\n\n{INSTRUCTIONS}"
     people = "\n".join(describe_person(a, tick) for a in agents.values() if a["alive"])
     past = "\n".join(f"- {d['kind']} for {d['target'].capitalize()} ({d['status']}): {d['reason']}"
                      for d in decisions) or "none"
     record = "\n".join(llm.describe(e, "") for e in events) or "nothing"
+    days = {}
+    for r in hours:
+        days.setdefault(r["day"], {}).setdefault(r["agent"], {})[r["kind"]] = r["n"]
+    # The calendar day without the hour, so the day of rest is named.
+    worked = "\n".join(
+        llm.clock(day * config.TICKS_PER_DAY).rsplit(", ", 1)[0].capitalize() + ": " + "; ".join(
+            f"{name.capitalize()} worked {h.get('work', 0)} hours and rested {h.get('rest', 0)}"
+            for name, h in people_hours.items())
+        for day, people_hours in days.items()) or "nobody worked or rested"
     user = (f"It is {llm.clock(tick)}.\n\nThe people:\n{people}\n\nSince yesterday:\n{record}"
+            f"\n\nHours worked and rested since yesterday:\n{worked}"
             f"\n\nYour recent decisions:\n{past}")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
 def record(db, tick):
-    """Yesterday's prayers, petitions and wrongs, and God's own recent decisions."""
-    events = db.q("select tick, kind, agent, data from events where tick>=? and (kind in ('pray', 'petition', "
-                  "'steal', 'request_child') "
-                  "or (kind='assess' and json_extract(data, '$.kept')=0)) order by id",
-                  (tick - config.TICKS_PER_DAY,))
+    """Everything since yesterday but work and rest, which come as hours per person and calendar day (the day of
+    rest runs from midnight), and God's own recent decisions."""
+    since = tick - config.TICKS_PER_DAY
+    marks = ",".join("?" * len(config.ROUTINE_EVENTS))
+    events = db.q(f"select tick, kind, agent, data from events where tick>=? and kind not in ({marks}) order by id",
+                  (since, *config.ROUTINE_EVENTS))
+    hours = db.q("select tick / ? as day, agent, kind, count(*) as n from events where tick>=? and "
+                 "kind in ('work', 'rest') group by day, agent, kind order by day, agent",
+                 (config.TICKS_PER_DAY, since))
     decisions = db.q("select kind, target, reason, status from decisions order by id desc limit 10")[::-1]
-    return events, decisions
+    return events, hours, decisions
 
 
 def owed(db, thief, victim):
@@ -176,6 +206,8 @@ def apply(db, api, namespace, agents, tick, answer, now):
              "values(?, ?, ?, ?, ?, ?, ?, 'applied')", (now, now, tick, penalty, target, days, p["reason"]))
         db.log("sentence", "god", target=target, penalty=penalty, reason=p["reason"], **extra)
 
+    judge(db, api, namespace, agents, tick, answer["judgments"])
+
 
 def apply_due(db, api, namespace, agents, tick, now):
     """Carries out exile and death once the veto window has passed without a pardon."""
@@ -190,6 +222,21 @@ def apply_due(db, api, namespace, agents, tick, now):
             db.x("update decisions set status='applied' where id=?", (d["id"],))
         else:
             db.x("update decisions set status='moot' where id=?", (d["id"],))
+
+
+def judge(db, api, namespace, agents, tick, judgments):
+    promises = {p["metadata"]["name"]: p for a in agents.values() if a["alive"] for p in a["promises"]}
+    for j in judgments:
+        promise = promises.get(j["promise"].strip(" []"))
+        reason = j["reason"].strip()
+        if promise is None or not reason or len(reason) > config.MAX_MESSAGE_CHARS:
+            db.log("invalid", "god", action="assess", reason="unknown promise or bad reason", judgment=j)
+            continue
+        if promise.get("status", {}).get("godVerdict", {}).get("kept") == j["kept"]:
+            continue
+        name, promiser = promise["metadata"]["name"], promise["spec"]["promiser"]
+        create_assessment(api, namespace, "god", promiser, name, j["kept"], tick, reason)
+        db.log("assess", "god", target=promiser, promise=name, kept=j["kept"], reason=reason)
 
 
 def answer_children(db, api, namespace, agents, tick, answers):
@@ -221,9 +268,9 @@ def answer_children(db, api, namespace, agents, tick, answers):
 
 
 def turn(db, api, namespace, agents, tick, quota, constitution):
-    events, decisions = record(db, tick)
+    events, hours, decisions = record(db, tick)
     try:
-        answer = llm.call(config.GOD_MODEL, prompt(constitution, agents, tick, events, decisions), quota,
+        answer = llm.call(config.GOD_MODEL, prompt(constitution, agents, tick, events, hours, decisions), quota,
                           schema=SCHEMA)
     except llm.Unavailable as e:
         db.log("skip", "god", reason=str(e))

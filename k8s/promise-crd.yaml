@@ -1,6 +1,7 @@
 # Promise Theory: an agent promises only about its own behaviour.
 # spec is written by the promiser. Any promise is accepted; only one with `refrains` can be
-# checked by the operator (status). The others are judged only by other agents' Assessments.
+# checked by the operator against the record. Every promise can be judged in Assessments, by the
+# agents and by God; the operator sums them up in status.
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -42,3 +43,11 @@ spec:
                 state: {type: string, enum: [kept, broken]}
                 violations: {type: integer, minimum: 0}
                 checkedTick: {type: integer}
+                judgedKept: {type: integer, minimum: 0}
+                judgedBroken: {type: integer, minimum: 0}
+                godVerdict:
+                  type: object
+                  properties:
+                    kept: {type: boolean}
+                    reason: {type: string}
+                    tick: {type: integer}

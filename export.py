@@ -26,29 +26,25 @@ from world import pace
 FEED_LENGTH = 400
 
 
-def promise_view(promise, judgments):
-    kept = judgments.get(promise["metadata"]["name"], [])
+def promise_view(promise):
     status = promise.get("status", {})
     return {"id": promise["metadata"]["name"], "body": promise["spec"]["body"],
             "refrains": promise["spec"].get("refrains"), "tick": promise["spec"]["tick"],
             "state": status.get("state"), "violations": status.get("violations"),
-            "judged_kept": kept.count(1), "judged_broken": kept.count(0)}
+            "judged_kept": status.get("judgedKept", 0), "judged_broken": status.get("judgedBroken", 0),
+            "god": status.get("godVerdict")}
 
 
 def snapshot(world, db, agents, now, speed):
     """speed: world days per real day, as the world loop paces itself."""
     tick = db.get("tick", 0)
     did = Counter((r["agent"], r["kind"]) for r in db.q("select agent, kind from events"))
-    judgments = {}
-    for r in db.q("select json_extract(data, '$.promise') as p, json_extract(data, '$.kept') as k from events "
-                  "where kind='assess'"):
-        judgments.setdefault(r["p"], []).append(r["k"])
     people = [{
         "name": a["name"], "sex": a["sex"], "model": a["model"], "alive": a["alive"], "food": a["food"],
         "spouse": a["spouse"], "role": a["role"], "parents": a["parents"], "born": a["born"],
         "child": not births.adult(a, tick), "exiled": a["exiled_until"] > tick,
         "warnings": a["warnings"], "marks": a["marks"],
-        "promises": [promise_view(p, judgments) for p in a["promises"]],
+        "promises": [promise_view(p) for p in a["promises"]],
         "did": {kind: n for (agent, kind), n in did.items() if agent == a["name"]},
     } for a in sorted(agents.values(), key=lambda a: (a["born"] or 0, a["name"]))]
     marks = ",".join("?" * len(config.ROUTINE_EVENTS))

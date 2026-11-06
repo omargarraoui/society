@@ -32,3 +32,5 @@ spec:
                 promise: {type: string}
                 kept: {type: boolean}
                 tick: {type: integer, minimum: 0}
+                # Only God gives a reason; agents judge without one.
+                reason: {type: string, maxLength: 500}

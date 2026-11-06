@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from fakes import FakeK8s
+from fakes import FakeK8s, at
 
 import config
 import god
@@ -29,8 +29,9 @@ def sentence(target, penalty, days=None, amount=None, victim=None, reason="x"):
     return {"target": target, "penalty": penalty, "days": days, "amount": amount, "victim": victim, "reason": reason}
 
 
-def answer(revelations=(), representative=None, penalties=()):
-    return {"revelations": list(revelations), "representative": representative, "penalties": list(penalties)}
+def answer(revelations=(), representative=None, penalties=(), judgments=()):
+    return {"revelations": list(revelations), "representative": representative, "penalties": list(penalties),
+            "judgments": list(judgments)}
 
 
 def kinds(db):
@@ -98,7 +99,7 @@ def test_a_second_death_in_a_day_pauses_the_world(tmp_path):
 
 def test_god_sees_neither_model_nor_group(tmp_path):
     agents = world(tmp_path)[2]
-    text = json.dumps(god.prompt("Constitution.", agents, TICK, [], []))
+    text = json.dumps(god.prompt("Constitution.", agents, TICK, [], [], []))
     assert "groq" not in text and "Adam, man; food 5; the representative" in text
 
 
@@ -150,3 +151,39 @@ def test_no_children_and_lose_role(tmp_path):
     assert agents["eve"]["children_banned_until"] == TICK + 3 * config.TICKS_PER_DAY
     assert agents["adam"]["role"] is None
     assert outcomes == [("sentence", "x"), ("sentence", "x"), ("invalid", "target has no role")]
+
+
+SABBATH = {"metadata": {"name": "adam-x"}, "spec": {"promiser": "adam", "body": "I will keep the day of rest holy",
+                                                    "tick": 9}}
+BROKEN = {"promise": "[adam-x]", "kept": False, "reason": "He worked on the day of rest."}
+
+
+def test_god_sees_each_promise_by_id_and_the_hours_worked_each_day(tmp_path):
+    db, _, agents = world(tmp_path)
+    agents["adam"]["promises"] = [SABBATH]
+    for hour in (9, 10, 11):
+        db.set("tick", at(7, hour))
+        db.log("work", "adam")
+    events, hours, decisions = god.record(db, at(8, 7))
+    text = god.prompt("Constitution.", agents, at(8, 7), events, hours, decisions)[1]["content"]
+    assert 'promised [adam-x] "I will keep the day of rest holy"' in text
+    assert "Week 1, day 7, the day of rest: Adam worked 3 hours and rested 0" in text
+
+
+def test_a_verdict_of_god_becomes_an_assessment_only_when_it_changes(tmp_path):
+    db, api, agents = world(tmp_path)
+    agents["adam"]["promises"] = [SABBATH]
+    god.apply(db, api, "w", agents, TICK, answer(judgments=[BROKEN]), NOW)
+    assert api.created[0]["spec"] == {"assessor": "god", "promiser": "adam", "promise": "adam-x", "kept": False,
+                                      "tick": TICK, "reason": "He worked on the day of rest."}
+    assert kinds(db) == [("assess", {"target": "adam", "promise": "adam-x", "kept": False,
+                                     "reason": "He worked on the day of rest."})]
+    agents["adam"]["promises"] = [{**SABBATH, "status": {"godVerdict": {"kept": False, "reason": "x", "tick": TICK}}}]
+    god.apply(db, api, "w", agents, TICK + 24, answer(judgments=[BROKEN]), NOW)
+    assert len(api.created) == 1
+
+
+def test_a_verdict_on_an_unknown_promise_is_rejected(tmp_path):
+    db, api, agents = world(tmp_path)
+    god.apply(db, api, "w", agents, TICK, answer(judgments=[BROKEN]), NOW)
+    assert api.created == [] and kinds(db)[0][0] == "invalid"
