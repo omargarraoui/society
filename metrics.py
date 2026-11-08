@@ -6,8 +6,9 @@ INTERACTIONS = {"speak", "give", "propose_marriage", "assess", "observe"}
 
 
 def event_rows(db):
+    """The people's events: God's, such as its verdicts on promises, are not interactions between groups."""
     return db.q("select agent, kind, json_extract(data, '$.target') as target, "
-                "json_extract(data, '$.kept') as kept from events")
+                "json_extract(data, '$.kept') as kept from events where agent!='god'")
 
 
 def segregation(events, agents):

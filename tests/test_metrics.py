@@ -1,6 +1,7 @@
 import pytest
 
-from metrics import segregation
+from db import DB
+from metrics import event_rows, segregation
 
 AGENTS = [
     {"name": "a1", "sex": "M", "group": "g1"},
@@ -49,3 +50,10 @@ def test_no_trust_gap_without_both_sides():
 def test_observing_counts_as_an_interaction():
     m = segregation([ev("a1", "observe", "a2")], AGENTS)
     assert m["ratio"]["g1->g1"] == pytest.approx(3.0)
+
+
+def test_god_s_verdicts_are_not_interactions_between_people(tmp_path):
+    db = DB(str(tmp_path / "w.db"))
+    db.log("speak", "a1", target="a2", message="Hi")
+    db.log("assess", "god", target="a1", promise="a1-x", kept=False, reason="He worked on the day of rest.")
+    assert segregation(event_rows(db), AGENTS)["in_group_ratio"] == 3.0
