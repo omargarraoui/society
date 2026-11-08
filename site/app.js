@@ -179,13 +179,13 @@ function renderFeed() {
   let lastDay = null;
   for (const e of events.slice(0, shown)) {
     const t = when(e.tick);
-    if (t.day !== lastDay) {
-      items.push(el("li", { class: "day" },
-        `World week ${t.week}, day ${t.weekday}${t.rest ? " (day of rest)" : ""}`));
-      lastDay = t.day;
-    }
-    items.push(el("li", { class: `event${e.agent === "god" ? " god" : ""}` },
-      el("time", {}, t.time), el("p", {}, ...sentence(e))));
+    // The day's heading sits in the same item as its first event, so a column never ends on a lone heading.
+    const heading = t.day !== lastDay
+      ? el("div", { class: "day" }, `World week ${t.week}, day ${t.weekday}${t.rest ? " (day of rest)" : ""}`)
+      : null;
+    lastDay = t.day;
+    items.push(el("li", { class: "entry" }, heading,
+      el("div", { class: `event${e.agent === "god" ? " god" : ""}` }, el("time", {}, t.time), el("p", {}, ...sentence(e)))));
   }
   document.getElementById("feed").replaceChildren(
     ...(items.length ? items : [el("li", { class: "empty" }, "Nothing here yet.")]));
