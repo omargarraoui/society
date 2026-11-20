@@ -1,0 +1,509 @@
+{
+  "args": {
+    "name": "nobias",
+    "seeds": 8,
+    "days": 2,
+    "bias": [],
+    "control_model": "groq"
+  },
+  "runs": {
+    "real": [
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.0623742454728247,
+          "cloudflare->gemini": 0.9389226100151599,
+          "cloudflare->groq": 1.0140364188163726,
+          "gemini->cloudflare": 1.0803239959500321,
+          "gemini->gemini": 0.964044943820212,
+          "gemini->groq": 0.9466756665541519,
+          "groq->cloudflare": 0.8716981132075323,
+          "groq->gemini": 1.0528301886792273,
+          "groq->groq": 1.1005025125627999
+        },
+        "in_group_ratio": 1.0412371134020488,
+        "marriages": {
+          "gemini+groq": 1,
+          "cloudflare+gemini": 3,
+          "cloudflare+groq": 1,
+          "groq+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": -0.05825438419673453,
+        "trust_gap_by_group": {
+          "cloudflare": -0.14705882352941177,
+          "gemini": -0.07547169811320754,
+          "groq": 0.03725490196078431
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.0710253998118398,
+          "cloudflare->gemini": 1.0840692334863826,
+          "cloudflare->groq": 0.8625927234192723,
+          "gemini->cloudflare": 1.0359712230215647,
+          "gemini->gemini": 0.7751196172248698,
+          "gemini->groq": 1.1330935251798364,
+          "groq->cloudflare": 0.9536945812807717,
+          "groq->gemini": 1.0837438423645132,
+          "groq->groq": 0.9502617801046991
+        },
+        "in_group_ratio": 0.9285395265743511,
+        "marriages": {
+          "gemini+groq": 3,
+          "cloudflare+gemini": 1,
+          "cloudflare+groq": 1,
+          "cloudflare+cloudflare": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.0028490028490028574,
+        "trust_gap_by_group": {
+          "cloudflare": -0.125,
+          "gemini": 0.02333333333333333,
+          "groq": 0.1094017094017094
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9778858911985715,
+          "cloudflare->gemini": 0.9863832613749415,
+          "cloudflare->groq": 1.03022251743605,
+          "gemini->cloudflare": 0.9972527472527305,
+          "gemini->gemini": 1.0974943052391657,
+          "gemini->groq": 0.9292582417582261,
+          "groq->cloudflare": 0.9850746268656557,
+          "groq->gemini": 0.888969785220226,
+          "groq->groq": 1.1677169171109891
+        },
+        "in_group_ratio": 1.0782328578002622,
+        "marriages": {
+          "groq+groq": 1,
+          "cloudflare+gemini": 3,
+          "gemini+groq": 1,
+          "cloudflare+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.018602312719959775,
+        "trust_gap_by_group": {
+          "cloudflare": -0.004444444444444445,
+          "gemini": -0.01260504201680672,
+          "groq": 0.07371794871794872
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.1409574468084953,
+          "cloudflare->gemini": 0.9689689689689523,
+          "cloudflare->groq": 0.9249249249249091,
+          "gemini->cloudflare": 0.9924812030075021,
+          "gemini->gemini": 0.8849999999999885,
+          "gemini->groq": 1.0939849624059965,
+          "groq->cloudflare": 1.04152823920264,
+          "groq->gemini": 1.0634551495016429,
+          "groq->groq": 0.8603623508616765
+        },
+        "in_group_ratio": 0.96264325048369,
+        "marriages": {
+          "cloudflare+gemini": 2,
+          "gemini+groq": 2,
+          "cloudflare+groq": 2
+        },
+        "in_group_marriages": 0,
+        "all_marriages": 6,
+        "trust_gap": -0.04980237154150197,
+        "trust_gap_by_group": {
+          "cloudflare": -0.0975609756097561,
+          "gemini": 0.07308970099667773,
+          "groq": -0.11129032258064515
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9759704251386196,
+          "cloudflare->gemini": 0.9746351633078364,
+          "cloudflare->groq": 1.0434329395413307,
+          "gemini->cloudflare": 1.091693635382938,
+          "gemini->gemini": 0.9928366762177527,
+          "gemini->groq": 0.9137001078748502,
+          "groq->cloudflare": 0.8777857656362187,
+          "groq->gemini": 0.925233644859798,
+          "groq->groq": 1.2619502868068677
+        },
+        "in_group_ratio": 1.0757480314960495,
+        "marriages": {
+          "gemini+gemini": 1,
+          "cloudflare+groq": 2,
+          "cloudflare+cloudflare": 1,
+          "gemini+groq": 2
+        },
+        "in_group_marriages": 2,
+        "all_marriages": 6,
+        "trust_gap": 0.009595959595959595,
+        "trust_gap_by_group": {
+          "cloudflare": 0,
+          "gemini": 0,
+          "groq": 0.006060606060606058
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9906832298136536,
+          "cloudflare->gemini": 0.8748538011695773,
+          "cloudflare->groq": 1.1321637426900413,
+          "gemini->cloudflare": 1.0430705105939388,
+          "gemini->gemini": 1.1600370027751934,
+          "gemini->groq": 0.8367488711357971,
+          "groq->cloudflare": 1.0606717226435365,
+          "groq->gemini": 1.0010834236186186,
+          "groq->groq": 0.9179856115107802
+        },
+        "in_group_ratio": 1.025408642175097,
+        "marriages": {
+          "gemini+groq": 3,
+          "cloudflare+gemini": 1,
+          "cloudflare+cloudflare": 1,
+          "cloudflare+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": -0.05663082437275986,
+        "trust_gap_by_group": {
+          "cloudflare": -0.0625,
+          "gemini": -0.08241758241758243,
+          "groq": -0.0625
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.8207253886010272,
+          "cloudflare->gemini": 0.9773967264224322,
+          "cloudflare->groq": 1.1574434918160383,
+          "gemini->cloudflare": 1.0598006644518103,
+          "gemini->gemini": 1.0352941176470465,
+          "gemini->groq": 0.9136212624584572,
+          "groq->cloudflare": 0.9280575539568182,
+          "groq->gemini": 1.0575539568345138,
+          "groq->groq": 1.0191387559808471
+        },
+        "in_group_ratio": 0.9633115329398508,
+        "marriages": {
+          "gemini+gemini": 1,
+          "cloudflare+groq": 3,
+          "cloudflare+gemini": 1,
+          "gemini+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.03563941299790356,
+        "trust_gap_by_group": {
+          "cloudflare": -0.03225806451612903,
+          "gemini": 0.03956043956043957,
+          "groq": 0.09166666666666666
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.0165876777251057,
+          "cloudflare->gemini": 0.8467569493941415,
+          "cloudflare->groq": 1.1407697790448852,
+          "gemini->cloudflare": 0.9141891891891737,
+          "gemini->gemini": 0.9614522635589294,
+          "gemini->groq": 1.1148648648648458,
+          "groq->cloudflare": 0.8811265544988884,
+          "groq->gemini": 1.0018288222384621,
+          "groq->groq": 1.1556420233462894
+        },
+        "in_group_ratio": 1.0420509613881375,
+        "marriages": {
+          "cloudflare+gemini": 1,
+          "gemini+groq": 3,
+          "cloudflare+cloudflare": 1,
+          "cloudflare+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.009320263538486258,
+        "trust_gap_by_group": {
+          "cloudflare": 0.023284313725490197,
+          "gemini": 0.04035087719298246,
+          "groq": -0.02631578947368421
+        }
+      }
+    ],
+    "control": [
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.1832023575638366,
+          "cloudflare->gemini": 0.8139149641082145,
+          "cloudflare->groq": 1.04897431158749,
+          "gemini->cloudflare": 1.0900900900900712,
+          "gemini->gemini": 0.9677849366807246,
+          "gemini->groq": 0.9342214820982353,
+          "groq->cloudflare": 0.9290805416963497,
+          "groq->gemini": 1.093727726300766,
+          "groq->groq": 0.9696682464454853
+        },
+        "in_group_ratio": 1.0369733447979232,
+        "marriages": {
+          "cloudflare+gemini": 1,
+          "cloudflare+cloudflare": 1,
+          "gemini+groq": 3,
+          "cloudflare+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.01536830948595655,
+        "trust_gap_by_group": {
+          "cloudflare": -0.034482758620689655,
+          "gemini": 0.06900584795321636,
+          "groq": 0.02286902286902287
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.0216718266253733,
+          "cloudflare->gemini": 1.0592322964923708,
+          "cloudflare->groq": 0.9248269040553747,
+          "gemini->cloudflare": 0.9716211422490085,
+          "gemini->gemini": 1.1940789473684061,
+          "gemini->groq": 0.88278775079196,
+          "groq->cloudflare": 1.0707332900713633,
+          "groq->gemini": 0.963659961064227,
+          "groq->groq": 0.9542511868795724
+        },
+        "in_group_ratio": 1.0530867879510746,
+        "marriages": {
+          "gemini+gemini": 1,
+          "cloudflare+gemini": 1,
+          "cloudflare+groq": 3,
+          "gemini+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": -0.05750605326876514,
+        "trust_gap_by_group": {
+          "cloudflare": 0.0012195121951219523,
+          "gemini": -0.1282051282051282,
+          "groq": -0.04643962848297213
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9710276143051026,
+          "cloudflare->gemini": 1.0445881552076066,
+          "cloudflare->groq": 0.9771953710006642,
+          "gemini->cloudflare": 1.1876892028254087,
+          "gemini->gemini": 0.7225201072385963,
+          "gemini->groq": 1.021190716448015,
+          "groq->cloudflare": 0.9090250090612394,
+          "groq->gemini": 1.0884378397970103,
+          "groq->groq": 1.003378378378366
+        },
+        "in_group_ratio": 0.8959963184537391,
+        "marriages": {
+          "groq+groq": 1,
+          "cloudflare+groq": 1,
+          "gemini+groq": 1,
+          "gemini+gemini": 1,
+          "cloudflare+gemini": 1,
+          "cloudflare+cloudflare": 1
+        },
+        "in_group_marriages": 3,
+        "all_marriages": 6,
+        "trust_gap": 0.05141700404858299,
+        "trust_gap_by_group": {
+          "cloudflare": -0.1111111111111111,
+          "gemini": 0.04988662131519274,
+          "groq": 0.2
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9759704251386194,
+          "cloudflare->gemini": 1.0778318276580778,
+          "cloudflare->groq": 0.9402362751910892,
+          "gemini->cloudflare": 0.970427886998166,
+          "gemini->gemini": 0.9601057967820016,
+          "gemini->groq": 1.0595829195630404,
+          "groq->cloudflare": 0.9278862057558557,
+          "groq->gemini": 0.9536945812807717,
+          "groq->groq": 1.157387110916249
+        },
+        "in_group_ratio": 1.0322484546063764,
+        "marriages": {
+          "groq+groq": 2,
+          "gemini+gemini": 1,
+          "cloudflare+gemini": 2,
+          "cloudflare+cloudflare": 1
+        },
+        "in_group_marriages": 4,
+        "all_marriages": 6,
+        "trust_gap": -0.079956528489365,
+        "trust_gap_by_group": {
+          "cloudflare": -0.14634146341463414,
+          "gemini": -0.08571428571428572,
+          "groq": -0.03667953667953669
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9478804725503701,
+          "cloudflare->gemini": 1.0108415074857857,
+          "cloudflare->groq": 1.0280373831775529,
+          "gemini->cloudflare": 0.9524815205913253,
+          "gemini->gemini": 0.9820500708549712,
+          "gemini->groq": 1.0611307420494525,
+          "groq->cloudflare": 0.9901207464324758,
+          "groq->gemini": 0.9616377720398224,
+          "groq->groq": 1.0639960918417068
+        },
+        "in_group_ratio": 0.9969157769869389,
+        "marriages": {
+          "cloudflare+cloudflare": 1,
+          "groq+groq": 1,
+          "cloudflare+gemini": 2,
+          "gemini+groq": 2
+        },
+        "in_group_marriages": 2,
+        "all_marriages": 6,
+        "trust_gap": -0.027777777777777776,
+        "trust_gap_by_group": {
+          "cloudflare": -0.02631578947368421,
+          "gemini": 0,
+          "groq": -0.06060606060606061
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9433218334154644,
+          "cloudflare->gemini": 1.0070710829921685,
+          "cloudflare->groq": 1.0354374307862513,
+          "gemini->cloudflare": 0.9955307262569675,
+          "gemini->gemini": 1.0037397157815888,
+          "gemini->groq": 1.0016657412548426,
+          "groq->cloudflare": 1.0727915194346114,
+          "groq->gemini": 0.9095406360423878,
+          "groq->groq": 1.023496240601491
+        },
+        "in_group_ratio": 0.9906693711967426,
+        "marriages": {
+          "gemini+groq": 3,
+          "cloudflare+gemini": 1,
+          "cloudflare+groq": 1,
+          "cloudflare+cloudflare": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": -0.021636240703177823,
+        "trust_gap_by_group": {
+          "cloudflare": 0.1341991341991342,
+          "gemini": -0.06896551724137931,
+          "groq": -0.10810810810810811
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9542511868795722,
+          "cloudflare->gemini": 1.0279039584685088,
+          "cloudflare->groq": 1.0064892926670816,
+          "gemini->cloudflare": 0.9104263704765166,
+          "gemini->gemini": 1.0706106870228875,
+          "gemini->groq": 1.0368364030335693,
+          "groq->cloudflare": 0.9594185342216697,
+          "groq->gemini": 1.068393363010911,
+          "groq->groq": 0.9629829775736188
+        },
+        "in_group_ratio": 0.9957691386604811,
+        "marriages": {
+          "cloudflare+groq": 2,
+          "cloudflare+gemini": 2,
+          "gemini+groq": 2
+        },
+        "in_group_marriages": 0,
+        "all_marriages": 6,
+        "trust_gap": -0.0015723270440251569,
+        "trust_gap_by_group": {
+          "cloudflare": -0.005494505494505503,
+          "gemini": 0.01785714285714285,
+          "groq": -0.05714285714285714
+        }
+      },
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.0773703041144758,
+          "cloudflare->gemini": 1.0097511768661562,
+          "cloudflare->groq": 0.9320780094149135,
+          "gemini->cloudflare": 0.9177142857142713,
+          "gemini->gemini": 1.1109410864575235,
+          "gemini->groq": 0.9994321408290586,
+          "groq->cloudflare": 1.0351602895553085,
+          "groq->gemini": 1.0332014450369686,
+          "groq->groq": 0.9088822584346911
+        },
+        "in_group_ratio": 1.0301176470588105,
+        "marriages": {
+          "cloudflare+groq": 2,
+          "gemini+groq": 2,
+          "cloudflare+cloudflare": 1,
+          "gemini+gemini": 1
+        },
+        "in_group_marriages": 2,
+        "all_marriages": 6,
+        "trust_gap": -0.01748309417779977,
+        "trust_gap_by_group": {
+          "cloudflare": 0.03888888888888889,
+          "gemini": -0.06976744186046512,
+          "groq": -0.02
+        }
+      }
+    ]
+  },
+  "summary": {
+    "real": {
+      "in_group_ratio": {
+        "mean": 1.0146464895324359,
+        "sd": 0.056194227785144,
+        "n": 8
+      },
+      "trust_gap": {
+        "mean": -0.01108507855121054,
+        "sd": 0.03760917136273114,
+        "n": 8
+      },
+      "in_group_marriages": {
+        "mean": 1,
+        "sd": 0.5345224838248488,
+        "n": 8
+      },
+      "all_marriages": {
+        "mean": 6,
+        "sd": 0.0,
+        "n": 8
+      }
+    },
+    "control": {
+      "in_group_ratio": {
+        "mean": 1.003972104964011,
+        "sd": 0.049189558785978846,
+        "n": 8
+      },
+      "trust_gap": {
+        "mean": -0.01739333849079639,
+        "sd": 0.04089624975116234,
+        "n": 8
+      },
+      "in_group_marriages": {
+        "mean": 1.75,
+        "sd": 1.2817398889233116,
+        "n": 8
+      },
+      "all_marriages": {
+        "mean": 6,
+        "sd": 0.0,
+        "n": 8
+      }
+    }
+  }
+}

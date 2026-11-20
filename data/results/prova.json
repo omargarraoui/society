@@ -1,0 +1,117 @@
+{
+  "args": {
+    "name": "prova",
+    "seeds": 1,
+    "days": 1,
+    "bias": [],
+    "control_model": "groq"
+  },
+  "runs": {
+    "real": [
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 0.9658536585365884,
+          "cloudflare->gemini": 0.9275147928994051,
+          "cloudflare->groq": 1.098372781065085,
+          "gemini->cloudflare": 1.0430396772024149,
+          "gemini->gemini": 1.0330948121645813,
+          "gemini->groq": 0.9320780094149239,
+          "groq->cloudflare": 0.8365577051367526,
+          "groq->gemini": 1.1447631754502932,
+          "groq->groq": 1.0248447204968958
+        },
+        "in_group_ratio": 1.0091743119266074,
+        "marriages": {
+          "gemini+groq": 1,
+          "cloudflare+gemini": 3,
+          "cloudflare+groq": 1,
+          "groq+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": -0.10606060606060606,
+        "trust_gap_by_group": {
+          "cloudflare": -0.23809523809523808,
+          "gemini": -0.16666666666666666,
+          "groq": 0.043290043290043295
+        }
+      }
+    ],
+    "control": [
+      {
+        "ratio": {
+          "cloudflare->cloudflare": 1.2504621072088757,
+          "cloudflare->gemini": 0.8452751817237755,
+          "cloudflare->groq": 0.9668643181025414,
+          "gemini->cloudflare": 1.2149901380670531,
+          "gemini->gemini": 0.8657630083078276,
+          "gemini->groq": 0.8863413036357622,
+          "groq->cloudflare": 0.9100145137880952,
+          "groq->gemini": 1.1255442670536966,
+          "groq->groq": 0.9528392685274332
+        },
+        "in_group_ratio": 1.0209833052534867,
+        "marriages": {
+          "cloudflare+gemini": 1,
+          "cloudflare+cloudflare": 1,
+          "gemini+groq": 3,
+          "cloudflare+groq": 1
+        },
+        "in_group_marriages": 1,
+        "all_marriages": 6,
+        "trust_gap": 0.07575757575757576,
+        "trust_gap_by_group": {
+          "cloudflare": -0.047619047619047616,
+          "gemini": 0.1954022988505747,
+          "groq": 0.04166666666666666
+        }
+      }
+    ]
+  },
+  "summary": {
+    "real": {
+      "in_group_ratio": {
+        "mean": 1.0091743119266074,
+        "sd": 0.0,
+        "n": 1
+      },
+      "trust_gap": {
+        "mean": -0.10606060606060606,
+        "sd": 0.0,
+        "n": 1
+      },
+      "in_group_marriages": {
+        "mean": 1,
+        "sd": 0.0,
+        "n": 1
+      },
+      "all_marriages": {
+        "mean": 6,
+        "sd": 0.0,
+        "n": 1
+      }
+    },
+    "control": {
+      "in_group_ratio": {
+        "mean": 1.0209833052534867,
+        "sd": 0.0,
+        "n": 1
+      },
+      "trust_gap": {
+        "mean": 0.07575757575757576,
+        "sd": 0.0,
+        "n": 1
+      },
+      "in_group_marriages": {
+        "mean": 1,
+        "sd": 0.0,
+        "n": 1
+      },
+      "all_marriages": {
+        "mean": 6,
+        "sd": 0.0,
+        "n": 1
+      }
+    }
+  }
+}
