@@ -151,6 +151,8 @@ Azioni previste per gli agenti (elenco fisso): speak, pray, work, give, steal, p
 
 Un tick: l'orologio dice se è giorno o notte e chi è sveglio; per ogni agente sveglio si costruisce il prompt (comandamenti, identità, riassunto, ultimi eventi), si chiama il router, si ottiene un'azione JSON, il motore delle regole valida e applica, si scrive il log e si aggiornano le metriche.
 
+- **Progetto chiuso (20 novembre 2026), su richiesta dell'utente (costi):** mondo, bot, mirror live ed export fermati (Deployment `society` a 0 repliche, CronJob `export` sospeso). Il sito non c'è più: i file sono stati tolti dal repository `omargarraoui/society` (restano nella storia git). Dati salvati in locale in `worlds/server-2026-11-20/` (fuori da git): `genesis.db` (3393 eventi, fino al tick 3502, integrità ok), `quota.db`, `k8s-genesis.yaml` (Agent, Promise, Assessment) e l'ultimo `data.json`. Adam è morto di fame al tick 1087 (week 7, day 4); Eve è rimasta sola. Dio ha giudicato 3 promesse, tutte mantenute.
+
 ## 4. Questioni aperte (da chiedere all'utente)
 
 1. ~~Parentela nelle prime generazioni~~: decisa, vedi sezione 2.
