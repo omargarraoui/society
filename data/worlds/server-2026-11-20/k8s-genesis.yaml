@@ -1,0 +1,188 @@
+---
+apiVersion: v1
+items:
+- apiVersion: society.local/v1
+  kind: Agent
+  metadata:
+    creationTimestamp: "2026-11-05T08:09:32Z"
+    generation: 1
+    name: adam
+    namespace: genesis
+    resourceVersion: "214570"
+    uid: 05d7e32e-43b8-4e6b-a519-c97496ac4e5a
+  spec:
+    group: groq
+    model: groq
+    sex: M
+  status:
+    alive: false
+    food: -3
+    role: representative
+- apiVersion: society.local/v1
+  kind: Agent
+  metadata:
+    creationTimestamp: "2026-11-05T08:09:32Z"
+    generation: 1
+    name: eve
+    namespace: genesis
+    resourceVersion: "620154"
+    uid: 22bdd133-8539-427e-9e1d-370a9b245313
+  spec:
+    group: gemini
+    model: gemini
+    sex: F
+  status:
+    food: 140
+    role: representative
+kind: List
+metadata:
+  resourceVersion: ""
+---
+apiVersion: v1
+items:
+- apiVersion: society.local/v1
+  kind: Promise
+  metadata:
+    creationTimestamp: "2026-11-06T00:16:21Z"
+    generateName: adam-
+    generation: 1
+    name: adam-n776q
+    namespace: genesis
+    resourceVersion: "60593"
+    uid: 618e9f26-03c8-4704-907e-0225b7a31526
+  spec:
+    body: I promise to keep the day of rest holy and not work on the Sabbath
+    promiser: adam
+    tick: 210
+  status:
+    godVerdict:
+      kept: true
+      reason: as Adam rested on the Sabbath, Adam kept his promise to keep the Sabbath
+        holy.
+      tick: 343
+    judgedBroken: 0
+    judgedKept: 0
+- apiVersion: society.local/v1
+  kind: Promise
+  metadata:
+    creationTimestamp: "2026-11-05T08:19:05Z"
+    finalizers:
+    - kopf.zalando.org/KopfFinalizerMarker
+    generateName: adam-
+    generation: 1
+    name: adam-qt565
+    namespace: genesis
+    resourceVersion: "622503"
+    uid: 81624ddf-8582-4a7a-8320-1d6a3d7f5579
+  spec:
+    body: I promise never to steal from anyone
+    promiser: adam
+    refrains: steal
+    tick: 33
+  status:
+    checkedTick: 3502
+    godVerdict:
+      kept: true
+      reason: Adam kept his promise to not steal from anyone.
+      tick: 343
+    judgedBroken: 0
+    judgedKept: 0
+    state: kept
+    violations: 0
+- apiVersion: society.local/v1
+  kind: Promise
+  metadata:
+    creationTimestamp: "2026-11-06T10:42:47Z"
+    finalizers:
+    - kopf.zalando.org/KopfFinalizerMarker
+    generateName: eve-
+    generation: 1
+    name: eve-pz2f6
+    namespace: genesis
+    resourceVersion: "622502"
+    uid: 55a5cae3-6907-4493-a931-7ef4c254998a
+  spec:
+    body: I promise to keep the day of rest holy and not work on the Sabbath
+    promiser: eve
+    refrains: work_on_day_of_rest
+    tick: 295
+  status:
+    checkedTick: 3502
+    godVerdict:
+      kept: true
+      reason: Eve kept her promise to keep the Sabbath holy.
+      tick: 343
+    judgedBroken: 0
+    judgedKept: 0
+    state: kept
+    violations: 0
+kind: List
+metadata:
+  resourceVersion: ""
+---
+apiVersion: v1
+items:
+- apiVersion: society.local/v1
+  kind: Assessment
+  metadata:
+    annotations:
+      kopf.zalando.org/last-handled-configuration: |
+        {"spec":{"assessor":"god","kept":true,"promise":"adam-qt565","promiser":"adam","reason":"Adam kept his promise to not steal from anyone.","tick":343}}
+    creationTimestamp: "2026-11-06T16:16:45Z"
+    generateName: god-
+    generation: 1
+    name: god-6wj8g
+    namespace: genesis
+    resourceVersion: "60596"
+    uid: d98182a0-c258-4447-8c9f-27c9a5f39d87
+  spec:
+    assessor: god
+    kept: true
+    promise: adam-qt565
+    promiser: adam
+    reason: Adam kept his promise to not steal from anyone.
+    tick: 343
+- apiVersion: society.local/v1
+  kind: Assessment
+  metadata:
+    annotations:
+      kopf.zalando.org/last-handled-configuration: |
+        {"spec":{"assessor":"god","kept":true,"promise":"adam-n776q","promiser":"adam","reason":"as Adam rested on the Sabbath, Adam kept his promise to keep the Sabbath holy.","tick":343}}
+    creationTimestamp: "2026-11-06T16:16:45Z"
+    generateName: god-
+    generation: 1
+    name: god-bsd9l
+    namespace: genesis
+    resourceVersion: "60597"
+    uid: 1b1b9be6-1a36-4d4b-8c0b-76f12a8e60fb
+  spec:
+    assessor: god
+    kept: true
+    promise: adam-n776q
+    promiser: adam
+    reason: as Adam rested on the Sabbath, Adam kept his promise to keep the Sabbath
+      holy.
+    tick: 343
+- apiVersion: society.local/v1
+  kind: Assessment
+  metadata:
+    annotations:
+      kopf.zalando.org/last-handled-configuration: |
+        {"spec":{"assessor":"god","kept":true,"promise":"eve-pz2f6","promiser":"eve","reason":"Eve kept her promise to keep the Sabbath holy.","tick":343}}
+    creationTimestamp: "2026-11-06T16:16:45Z"
+    generateName: god-
+    generation: 1
+    name: god-ksmz8
+    namespace: genesis
+    resourceVersion: "60595"
+    uid: ceb603b2-fd6d-43fa-bfbe-e0643fe33150
+  spec:
+    assessor: god
+    kept: true
+    promise: eve-pz2f6
+    promiser: eve
+    reason: Eve kept her promise to keep the Sabbath holy.
+    tick: 343
+kind: List
+metadata:
+  resourceVersion: ""
